@@ -1,0 +1,35 @@
+{
+  "name": "promkep-tutra-api",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc && tsc-alias --resolve-full-paths",
+    "start": "node dist/server.js",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:generate": "prisma generate",
+    "prisma:seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@fastify/cors": "^10.0.0",
+    "@fastify/multipart": "^9.0.0",
+    "@line/bot-sdk": "^9.7.0",
+    "@prisma/client": "^5.22.0",
+    "dotenv": "^16.4.5",
+    "fastify": "^5.1.0",
+    "pino-pretty": "^11.2.2",
+    "promptpay-qr": "^0.5.0",
+    "qrcode": "^1.5.4",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@napi-rs/canvas": "^0.1.100",
+    "@types/node": "^22.9.0",
+    "@types/qrcode": "^1.5.5",
+    "prisma": "^5.22.0",
+    "tsc-alias": "^1.8.16",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}

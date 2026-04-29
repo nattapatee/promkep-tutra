@@ -1,0 +1,34 @@
+# Production compose file for the promkep-tutra stack.
+# Lives at /opt/promkep-tutra/docker-compose.yml on the droplet.
+# Joins the SAME docker network as pwt-tx (`pwt-tx_app`) so the existing
+# Caddy reverse proxy in /opt/pwt-tx/ can route subdomains to these containers.
+#
+# No Caddy here — reuse the one in pwt-tx. Append the snippet from
+# `Caddyfile.snippet` to /opt/pwt-tx/Caddyfile and
+# `docker compose -f /opt/pwt-tx/docker-compose.yml restart caddy`.
+
+name: promkep-tutra
+
+services:
+  api:
+    image: ghcr.io/${GH_OWNER}/${GH_REPO}-api:${IMAGE_TAG:-latest}
+    container_name: promkep-tutra-api
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      # SQLite DB lives at /app/data/dev.db (DATABASE_URL points there).
+      - ./data/api:/app/data
+      - ./data/uploads:/app/uploads
+      - ./data/cache:/app/.cache
+    networks: [shared]
+
+  web:
+    image: ghcr.io/${GH_OWNER}/${GH_REPO}-web:${IMAGE_TAG:-latest}
+    container_name: promkep-tutra-web
+    restart: unless-stopped
+    networks: [shared]
+
+networks:
+  shared:
+    name: pwt-tx_app
+    external: true

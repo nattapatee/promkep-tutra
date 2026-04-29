@@ -1,0 +1,122 @@
+// PromKep-Tutra — schema
+// Personal finance ledger (private per user) + PromptPay QR + DebtRequest IOUs.
+// Provider is SQLite for dev; swap to "postgresql" when scaling.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// LINE user — owns their own private ledger + optional PromptPay link.
+model User {
+  id             String          @id @default(cuid())
+  lineUserId     String          @unique
+  displayName    String
+  avatarUrl      String?
+  role           String          @default("member") // "admin" | "member"
+  registeredAt   DateTime?
+  createdAt      DateTime        @default(now())
+  transactions   Transaction[]
+  chatMessages   ChatMessage[]
+  promptPayLink  PromptPayLink?
+  creditorDebts  DebtRequest[]   @relation("CreditorDebts")
+  debtorDebts    DebtRequest[]   @relation("DebtorDebts")
+}
+
+/// Conversation turn for the AI secretary ("น้องเก็บ"). Auto-pruned by ttl.
+model ChatMessage {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      String   // "user" | "model"
+  text      String
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+/// Hybrid: seeded defaults + user-added customs. type = "income" | "expense".
+model Category {
+  id           Int           @id @default(autoincrement())
+  name         String        @unique
+  type         String        // "income" | "expense"
+  icon         String?
+  color        String?
+  isDefault    Boolean       @default(false)
+  disabled     Boolean       @default(false)
+  createdAt    DateTime      @default(now())
+  transactions Transaction[]
+}
+
+/// One income or expense entry, OWNED BY EXACTLY ONE USER (private).
+/// Amount in satang (THB × 100) to avoid float drift.
+model Transaction {
+  id          String       @id @default(cuid())
+  type        String       // "income" | "expense"
+  amount      Int          // satang
+  title       String?      // short headline; falls back to category name in UI
+  categoryId  Int
+  category    Category     @relation(fields: [categoryId], references: [id])
+  note        String?
+  occurredAt  DateTime
+  createdById String
+  createdBy   User         @relation(fields: [createdById], references: [id])
+  createdAt   DateTime     @default(now())
+  attachments Attachment[]
+
+  @@index([occurredAt])
+  @@index([categoryId])
+  @@index([createdById])
+}
+
+/// Image (or any file) attached to a Transaction. Filepath relative to uploads/.
+model Attachment {
+  id            String      @id @default(cuid())
+  transactionId String
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  filename      String
+  filepath      String
+  mimeType      String
+  sizeBytes     Int
+  createdAt     DateTime    @default(now())
+
+  @@index([transactionId])
+}
+
+/// One PromptPay binding per user — phone number or national ID.
+model PromptPayLink {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  identifier  String   // raw — e.g. "0812345678" or "1234567890123"
+  kind        String   // "phone" | "national_id"
+  displayName String?  // human label e.g. "Personal mobile"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+/// IOU between two registered users. Status flow:
+///   pending → paid | rejected | later
+model DebtRequest {
+  id             String    @id @default(cuid())
+  creditorId     String
+  creditor       User      @relation("CreditorDebts", fields: [creditorId], references: [id], onDelete: Cascade)
+  debtorId       String
+  debtor         User      @relation("DebtorDebts", fields: [debtorId], references: [id], onDelete: Cascade)
+  amount         Int       // satang
+  reason         String?
+  dueAt          DateTime?
+  status         String    @default("pending") // "pending" | "paid" | "rejected" | "later"
+  createdAt      DateTime  @default(now())
+  resolvedAt     DateTime?
+  reminderCount  Int       @default(0)
+  lastRemindedAt DateTime?
+
+  @@index([creditorId])
+  @@index([debtorId])
+  @@index([status])
+}

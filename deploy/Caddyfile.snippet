@@ -1,0 +1,19 @@
+# Append this block to /opt/pwt-tx/Caddyfile on the droplet.
+# The existing pwt-tx Caddy proxy serves BOTH stacks via the shared
+# `pwt-tx_app` docker network.
+#
+# After appending:
+#   docker compose -f /opt/pwt-tx/docker-compose.yml restart caddy
+#
+# DNS prerequisite: A records for both subdomains must already point
+# at the droplet IP, otherwise Caddy can't issue Let's Encrypt certs.
+
+promkep-api.alizoft.site {
+    encode zstd gzip
+    reverse_proxy promkep-tutra-api:3001
+}
+
+promkep-web.alizoft.site {
+    encode zstd gzip
+    reverse_proxy promkep-tutra-web:3000
+}
