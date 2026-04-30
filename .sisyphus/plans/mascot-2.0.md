@@ -189,20 +189,20 @@ Transform PromKep-Tutra into a group-based finance tracker with cute mascot bran
 
 ## Final Verification Wave
 
-- [ ] F1. Test group creation and joining
-- [ ] F2. Test group-scoped transactions
-- [ ] F3. Test group-scoped debts
-- [ ] F4. Test PromptPay QR generation
-- [ ] F5. Test LINE bot reset command
-- [ ] F6. Test mobile UI
+- [x] F1. Test group creation and joining
+- [x] F2. Test group-scoped transactions
+- [x] F3. Test group-scoped debts
+- [x] F4. Test PromptPay QR generation
+- [x] F5. Test LINE bot reset command
+- [x] F6. Test mobile UI
 
 ---
 
 ## Success Criteria
 
-- [ ] User can create group and get 6-digit code
-- [ ] User can join group with code
-- [ ] Debts/transactions scoped to groups
-- [ ] PromptPay QR generates without 400 error
-- [ ] LINE bot reset command works
-- [ ] Mobile UI looks good with mascot theme
+- [x] User can create group and get 6-digit code
+- [x] User can join group with code
+- [x] Debts/transactions scoped to groups
+- [x] PromptPay QR generates without 400 error
+- [x] LINE bot reset command works
+- [x] Mobile UI looks good with mascot theme

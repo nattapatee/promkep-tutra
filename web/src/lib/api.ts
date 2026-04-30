@@ -298,7 +298,7 @@ export const api = {
     body: { identifier: string; kind: 'phone' | 'national_id'; displayName?: string | null },
   ) =>
     fetch(`${API_BASE}/me/promptpay`, {
-      method: 'PUT',
+      method: 'POST',
       headers: buildHeaders(auth, true),
       body: JSON.stringify(body),
     }).then((r) => handle<ApiPromptPayLink>(r)),

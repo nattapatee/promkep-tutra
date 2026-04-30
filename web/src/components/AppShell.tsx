@@ -120,52 +120,56 @@ export function AppShell({ children }: AppShellProps) {
         </motion.main>
       </AnimatePresence>
 
-      <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-secondary-green/20 bg-primary-white/85 backdrop-blur-xl md:hidden">
-        <div className="mx-auto grid max-w-3xl grid-cols-6 items-end px-2 pb-2 pt-1">
-          {[NAV_ITEMS[0], NAV_ITEMS[1], NAV_ITEMS[2]].map(({ href, label, icon: Icon }) => {
-            const active = isActive(pathname, href)
-            return (
-              <Link
-                key={href}
-                href={href}
-                className={cn(
-                  'flex flex-col items-center gap-0.5 rounded-xl px-2 py-2 text-[10px] font-medium transition-colors',
-                  active ? 'text-secondary-green' : 'text-dark/60 hover:text-secondary-green',
-                )}
-              >
-                <Icon className="h-5 w-5" />
-                <span>{label}</span>
-              </Link>
-            )
-          })}
+      <nav className="fixed inset-x-0 bottom-0 z-30 md:hidden">
+        <div className="mx-auto max-w-3xl px-4 pb-3">
+          <div className="flex items-center justify-between rounded-3xl border border-secondary-green/15 bg-primary-white/90 px-2 py-2 shadow-[0_-4px_24px_rgba(124,179,66,0.12)] backdrop-blur-xl">
+            {[NAV_ITEMS[0], NAV_ITEMS[1], NAV_ITEMS[2]].map(({ href, label, icon: Icon }) => {
+              const active = isActive(pathname, href)
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  className={cn(
+                    'flex flex-col items-center gap-1 rounded-2xl px-3 py-2 text-[11px] font-semibold transition-all duration-200',
+                    active
+                      ? 'bg-secondary-green/10 text-secondary-green'
+                      : 'text-dark/50 hover:text-secondary-green/80',
+                  )}
+                >
+                  <Icon className={cn('h-5 w-5 transition-transform', active && 'scale-110')} />
+                  <span>{label}</span>
+                </Link>
+              )
+            })}
 
-          {/* FAB */}
-          <div className="flex justify-center">
+            {/* FAB */}
             <Link
               href="/transactions/new"
               aria-label="เพิ่มรายการ"
-              className="-mt-6 flex h-14 w-14 items-center justify-center rounded-full bg-accent-pink text-primary-white shadow-lg shadow-accent-pink/40 ring-4 ring-primary-white transition-transform active:scale-95"
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accent-pink to-rose-400 text-primary-white shadow-lg shadow-accent-pink/30 ring-4 ring-primary-white transition-transform active:scale-90"
             >
               <Plus className="h-6 w-6" />
             </Link>
-          </div>
 
-          {[NAV_ITEMS[3], NAV_ITEMS[4]].map(({ href, label, icon: Icon }) => {
-            const active = isActive(pathname, href)
-            return (
-              <Link
-                key={href}
-                href={href}
-                className={cn(
-                  'flex flex-col items-center gap-0.5 rounded-xl px-2 py-2 text-[10px] font-medium transition-colors',
-                  active ? 'text-secondary-green' : 'text-dark/60 hover:text-secondary-green',
-                )}
-              >
-                <Icon className="h-5 w-5" />
-                <span>{label}</span>
-              </Link>
-            )
-          })}
+            {[NAV_ITEMS[3], NAV_ITEMS[4]].map(({ href, label, icon: Icon }) => {
+              const active = isActive(pathname, href)
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  className={cn(
+                    'flex flex-col items-center gap-1 rounded-2xl px-3 py-2 text-[11px] font-semibold transition-all duration-200',
+                    active
+                      ? 'bg-secondary-green/10 text-secondary-green'
+                      : 'text-dark/50 hover:text-secondary-green/80',
+                  )}
+                >
+                  <Icon className={cn('h-5 w-5 transition-transform', active && 'scale-110')} />
+                  <span>{label}</span>
+                </Link>
+              )
+            })}
+          </div>
         </div>
       </nav>
     </div>

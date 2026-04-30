@@ -89,8 +89,7 @@ function RegistrationGuard({ children }: { children: React.ReactNode }) {
   const { ready, error: authError, authHeaders, retry } = useAuth()
   const pathname = usePathname()
   const router = useRouter()
-  const [isRelogging, setIsRelogging] = React.useState(false)
-  const [reloginTimedOut, setReloginTimedOut] = React.useState(false)
+  const [isReloading, setIsReloading] = React.useState(false)
 
   const meQuery = useQuery<ApiUser>({
     queryKey: ['me', authHeaders.lineUserId],
@@ -102,37 +101,18 @@ function RegistrationGuard({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     const raw = sessionStorage.getItem('liff_relogin_attempt')
     if (!raw) return
-    const ts = parseInt(raw, 10)
-    if (Date.now() - ts < 10_000) {
-      sessionStorage.removeItem('liff_relogin_attempt')
-      retry()
-    }
+    sessionStorage.removeItem('liff_relogin_attempt')
+    retry()
   }, [retry])
 
   React.useEffect(() => {
-    if (!isRelogging) {
-      setReloginTimedOut(false)
-      return
-    }
-    const timer = setTimeout(() => {
-      setReloginTimedOut(true)
-    }, 5000)
-    return () => clearTimeout(timer)
-  }, [isRelogging])
-
-  React.useEffect(() => {
-    if (!meQuery.error || isRelogging) return
-
+    if (!meQuery.error || isReloading) return
     if (isTokenExpiredError(meQuery.error)) {
-      console.log('[Auth] Token expired, triggering relogin')
-      setIsRelogging(true)
-      reloginLiff().catch(() => {
-        // reloginLiff will redirect, so this rarely executes
-        setIsRelogging(false)
-      })
-      return
+      console.log('[Auth] Token expired, reloading')
+      setIsReloading(true)
+      reloginLiff()
     }
-  }, [meQuery.error, isRelogging])
+  }, [meQuery.error, isReloading])
 
   React.useEffect(() => {
     if (!meQuery.data) return
@@ -157,26 +137,17 @@ function RegistrationGuard({ children }: { children: React.ReactNode }) {
     )
   }
 
-  if (isRelogging) {
-    if (reloginTimedOut) {
-      return (
-        <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-rose-100 via-orange-100 to-amber-50 p-6">
-          <div className="rounded-3xl bg-white/80 p-6 shadow-lg backdrop-blur text-center">
-            <p className="mb-3 text-rose-600">ไม่สามารถรีเฟรชเซสชันได้</p>
-            <button
-              onClick={() => window.location.reload()}
-              className="rounded-full bg-gradient-to-br from-rose-400 to-amber-500 px-5 py-2 text-sm font-medium text-white shadow hover:opacity-90"
-            >
-              ลองใหม่
-            </button>
-          </div>
-        </div>
-      )
-    }
+  if (isReloading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-rose-100 via-orange-100 to-amber-50">
         <div className="flex flex-col items-center gap-4">
-          <p className="text-sm text-zinc-600">กำลังรีเฟรชเซสชัน...</p>
+          <div className="relative h-16 w-16">
+            <div className="absolute inset-0 animate-ping rounded-full bg-gradient-to-br from-rose-400 to-amber-500 opacity-30" />
+            <div className="absolute inset-0 flex items-center justify-center rounded-full bg-gradient-to-br from-rose-400 to-amber-500 text-2xl font-bold text-white shadow-lg">
+              ฿
+            </div>
+          </div>
+          <p className="text-sm text-zinc-600">เซสชันหมดอายุ กำลังโหลดใหม่...</p>
         </div>
       </div>
     )
@@ -188,7 +159,12 @@ function RegistrationGuard({ children }: { children: React.ReactNode }) {
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-rose-100 via-orange-100 to-amber-50 p-6">
         <div className="rounded-3xl bg-white/80 p-6 shadow-lg backdrop-blur text-center">
           <p className="mb-3 text-rose-600">{errMsg}</p>
-          <p className="text-xs text-zinc-500">กรุณาลองปิดและเปิดแอปใหม่</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="rounded-full bg-gradient-to-br from-rose-400 to-amber-500 px-5 py-2 text-sm font-medium text-white shadow hover:opacity-90"
+          >
+            โหลดใหม่
+          </button>
         </div>
       </div>
     )

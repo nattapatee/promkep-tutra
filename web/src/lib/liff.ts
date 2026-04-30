@@ -35,19 +35,12 @@ export async function reloginLiff(): Promise<void> {
   const liffMod = await import('@line/liff')
   const liff = liffMod.default
 
-  if (liff.isLoggedIn()) {
-    console.log('[LIFF] Token expired, calling logout()')
-    liff.logout()
-  }
-
-  console.log('[LIFF] Calling login() for fresh token')
-  sessionStorage.setItem('liff_relogin_attempt', Date.now().toString())
-  liff.login()
-
-  setTimeout(() => {
-    console.log('[LIFF] Login redirect did not happen, forcing reload')
-    window.location.reload()
-  }, 3000)
+  console.log('[LIFF] Token expired, reloading')
+  try {
+    if (liff.isLoggedIn()) liff.logout()
+  } catch {}
+  sessionStorage.removeItem('liff_relogin_attempt')
+  window.location.reload()
 }
 
 export async function initLiff(): Promise<LiffSession> {
