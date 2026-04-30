@@ -80,7 +80,7 @@ function BrandedLoader() {
 }
 
 function RegistrationGuard({ children }: { children: React.ReactNode }) {
-  const { ready, authHeaders } = useAuth()
+  const { ready, error: authError, authHeaders } = useAuth()
   const pathname = usePathname()
   const router = useRouter()
 
@@ -104,10 +104,32 @@ function RegistrationGuard({ children }: { children: React.ReactNode }) {
 
   if (pathname === '/health') return <>{children}</>
 
-  if (!ready || !meQuery.data) return <BrandedLoader />
+  if (authError) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-rose-100 via-orange-100 to-amber-50 p-6">
+        <div className="rounded-3xl bg-white/80 p-6 shadow-lg backdrop-blur text-center">
+          <p className="mb-3 text-rose-600">{authError}</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (meQuery.error) {
+    const errMsg = meQuery.error instanceof Error ? meQuery.error.message : 'Failed to load user'
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-rose-100 via-orange-100 to-amber-50 p-6">
+        <div className="rounded-3xl bg-white/80 p-6 shadow-lg backdrop-blur text-center">
+          <p className="mb-3 text-rose-600">{errMsg}</p>
+          <p className="text-xs text-zinc-500">กรุณาลองปิดและเปิดแอปใหม่</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!ready || meQuery.isLoading) return <BrandedLoader />
 
   const isRegisterRoute = pathname === '/register'
-  const shouldBeOnRegister = meQuery.data.registered === false
+  const shouldBeOnRegister = meQuery.data?.registered === false
   if (shouldBeOnRegister !== isRegisterRoute) return <BrandedLoader />
 
   return <>{children}</>
