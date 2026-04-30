@@ -39,11 +39,9 @@ Thumbs.db
 *.swp
 
 # local tooling / caches
-.claude/
-.omc/
+# Note: .claude/rules/ and .omc/skills/ are committed for project-specific config
 .playwright-mcp/
 **/.cache/
-**/.omc/
 
 # extra prisma safety (any nested dev.db)
 **/prisma/dev.db
