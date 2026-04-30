@@ -67,7 +67,7 @@ export async function debtRoutes(app: FastifyInstance) {
       },
       orderBy: { createdAt: 'desc' },
     })
-    return debts
+    return { data: debts }
   })
 
   app.post('/debts', async (req, reply) => {
