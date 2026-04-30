@@ -8,7 +8,7 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query'
-import { initLiff, type LiffProfile } from '@/lib/liff'
+import { initLiff, reloginLiff, type LiffProfile } from '@/lib/liff'
 import { api, type ApiUser, type AuthHeaders } from '@/lib/api'
 
 interface AuthState {
@@ -79,10 +79,17 @@ function BrandedLoader() {
   )
 }
 
+function isTokenExpiredError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false
+  const msg = error.message.toLowerCase()
+  return msg.includes('invalid_token') || msg.includes('expired') || msg.includes('token expired')
+}
+
 function RegistrationGuard({ children }: { children: React.ReactNode }) {
   const { ready, error: authError, authHeaders } = useAuth()
   const pathname = usePathname()
   const router = useRouter()
+  const [isRelogging, setIsRelogging] = React.useState(false)
 
   const meQuery = useQuery<ApiUser>({
     queryKey: ['me', authHeaders.lineUserId],
@@ -90,6 +97,20 @@ function RegistrationGuard({ children }: { children: React.ReactNode }) {
     enabled: ready,
     retry: false,
   })
+
+  React.useEffect(() => {
+    if (!meQuery.error || isRelogging) return
+
+    if (isTokenExpiredError(meQuery.error)) {
+      console.log('[Auth] Token expired, triggering relogin')
+      setIsRelogging(true)
+      reloginLiff().catch(() => {
+        // reloginLiff will redirect, so this rarely executes
+        setIsRelogging(false)
+      })
+      return
+    }
+  }, [meQuery.error, isRelogging])
 
   React.useEffect(() => {
     if (!meQuery.data) return
@@ -114,7 +135,17 @@ function RegistrationGuard({ children }: { children: React.ReactNode }) {
     )
   }
 
-  if (meQuery.error) {
+  if (isRelogging) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-rose-100 via-orange-100 to-amber-50">
+        <div className="flex flex-col items-center gap-4">
+          <p className="text-sm text-zinc-600">กำลังรีเฟรชเซสชัน...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (meQuery.error && !isTokenExpiredError(meQuery.error)) {
     const errMsg = meQuery.error instanceof Error ? meQuery.error.message : 'Failed to load user'
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-rose-100 via-orange-100 to-amber-50 p-6">

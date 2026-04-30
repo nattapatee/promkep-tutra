@@ -28,6 +28,22 @@ function timeout<T>(ms: number, promise: Promise<T>): Promise<T> {
   })
 }
 
+export async function reloginLiff(): Promise<void> {
+  const liffId = process.env.NEXT_PUBLIC_LIFF_ID
+  if (!liffId) return
+
+  const liffMod = await import('@line/liff')
+  const liff = liffMod.default
+
+  if (liff.isLoggedIn()) {
+    console.log('[LIFF] Token expired, calling logout()')
+    liff.logout()
+  }
+
+  console.log('[LIFF] Calling login() for fresh token')
+  liff.login()
+}
+
 export async function initLiff(): Promise<LiffSession> {
   const liffId = process.env.NEXT_PUBLIC_LIFF_ID
 
