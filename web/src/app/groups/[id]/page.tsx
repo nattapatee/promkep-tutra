@@ -15,6 +15,10 @@ import {
   LogOut,
   Crown,
   User,
+  Share2,
+  Copy,
+  Check,
+  UserX,
 } from 'lucide-react'
 import { useAuth } from '@/app/providers'
 import { api, type ApiGroupMember, type ApiTransaction, type ApiDebtRequest } from '@/lib/api'
@@ -41,6 +45,8 @@ export default function GroupDetailPage() {
   const queryClient = useQueryClient()
   const [tab, setTab] = React.useState<Tab>('members')
   const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false)
+  const [copied, setCopied] = React.useState(false)
+  const [kickMemberId, setKickMemberId] = React.useState<string | null>(null)
 
   const groupQuery = useQuery({
     queryKey: ['group', groupId, authHeaders.lineUserId],
@@ -87,6 +93,32 @@ export default function GroupDetailPage() {
       alert(e instanceof Error ? e.message : 'ไม่สามารถลบกลุ่มได้')
     },
   })
+
+  const kickMut = useMutation({
+    mutationFn: (memberId: string) => api.kickGroupMember(authHeaders, groupId, memberId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['group-members', groupId] })
+      queryClient.invalidateQueries({ queryKey: ['group', groupId] })
+      setKickMemberId(null)
+    },
+    onError: (e: unknown) => {
+      alert(e instanceof Error ? e.message : 'ไม่สามารถเตะสมาชิกได้')
+    },
+  })
+
+  function handleShare() {
+    const code = groupQuery.data?.code
+    if (!code) return
+    const text = `เข้าร่วมกลุ่ม "${groupQuery.data?.name}" ใน PromKep-Tutra รหัส: ${code}`
+    if (navigator.share) {
+      navigator.share({ title: 'เชิญเข้ากลุ่ม', text })
+    } else {
+      navigator.clipboard.writeText(text).then(() => {
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+      })
+    }
+  }
 
   async function handleRefresh() {
     await Promise.all([
@@ -159,23 +191,31 @@ export default function GroupDetailPage() {
                 </div>
               </div>
               <div className="flex gap-2">
-                {!isOnlyAdmin && (
-                  <MascotButton
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    className="flex-1"
-                    disabled={leaveMut.isPending}
-                    onClick={() => {
-                      if (window.confirm('ต้องการออกจากกลุ่มนี้หรือไม่?')) {
-                        leaveMut.mutate()
-                      }
-                    }}
-                  >
-                    <LogOut className="h-3.5 w-3.5" />
-                    ออกจากกลุ่ม
-                  </MascotButton>
-                )}
+                <MascotButton
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="flex-1"
+                  onClick={handleShare}
+                >
+                  {copied ? <Check className="h-3.5 w-3.5" /> : <Share2 className="h-3.5 w-3.5" />}
+                  {copied ? 'คัดลอกแล้ว' : 'แชร์'}
+                </MascotButton>
+                <MascotButton
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="flex-1"
+                  disabled={leaveMut.isPending}
+                  onClick={() => {
+                    if (window.confirm('ต้องการออกจากกลุ่มนี้หรือไม่?')) {
+                      leaveMut.mutate()
+                    }
+                  }}
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                  ออก
+                </MascotButton>
                 {isAdmin && (
                   <MascotButton
                     type="button"
@@ -186,7 +226,7 @@ export default function GroupDetailPage() {
                     onClick={() => setShowDeleteConfirm(true)}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
-                    ลบกลุ่ม
+                    ลบ
                   </MascotButton>
                 )}
               </div>
@@ -252,7 +292,12 @@ export default function GroupDetailPage() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: i * 0.03 }}
                     >
-                      <MemberRow member={member} isCurrentUser={member.userId === profile?.lineUserId} />
+                      <MemberRow
+                        member={member}
+                        isCurrentUser={member.userId === profile?.lineUserId}
+                        isAdmin={isAdmin}
+                        onKick={(id) => setKickMemberId(id)}
+                      />
                     </motion.div>
                   ))}
                 </div>
@@ -382,11 +427,64 @@ export default function GroupDetailPage() {
           </motion.div>
         </div>
       )}
+
+      {kickMemberId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-xl"
+          >
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-rose-100 text-rose-600">
+              <UserX className="h-6 w-6" />
+            </div>
+            <h3 className="text-lg font-bold text-zinc-800">เตะสมาชิก?</h3>
+            <p className="mt-1 text-sm text-zinc-500">
+              สมาชิกคนนี้จะถูกนำออกจากกลุ่ม
+            </p>
+            <div className="mt-5 flex gap-3">
+              <MascotButton
+                type="button"
+                variant="secondary"
+                className="flex-1"
+                onClick={() => setKickMemberId(null)}
+              >
+                ยกเลิก
+              </MascotButton>
+              <MascotButton
+                type="button"
+                className="flex-1 bg-rose-500 text-white shadow-rose-200/50 hover:bg-rose-600"
+                disabled={kickMut.isPending}
+                onClick={() => kickMut.mutate(kickMemberId)}
+              >
+                {kickMut.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    กำลังเตะ...
+                  </>
+                ) : (
+                  'เตะออก'
+                )}
+              </MascotButton>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   )
 }
 
-function MemberRow({ member, isCurrentUser }: { member: ApiGroupMember; isCurrentUser: boolean }) {
+function MemberRow({
+  member,
+  isCurrentUser,
+  isAdmin,
+  onKick,
+}: {
+  member: ApiGroupMember
+  isCurrentUser: boolean
+  isAdmin: boolean
+  onKick: (memberId: string) => void
+}) {
   return (
     <Card className={cn(isCurrentUser && 'border-secondary-green/40 ring-1 ring-secondary-green/20')}>
       <CardContent className="flex items-center gap-3 py-3">
@@ -412,22 +510,34 @@ function MemberRow({ member, isCurrentUser }: { member: ApiGroupMember; isCurren
             เข้าร่วม {formatBangkokDate(member.joinedAt, 'dd MMM yyyy')}
           </p>
         </div>
-        <Badge
-          variant={member.role === 'admin' ? 'pending' : 'default'}
-          className="shrink-0"
-        >
-          {member.role === 'admin' ? (
-            <span className="flex items-center gap-1">
-              <Crown className="h-3 w-3" />
-              แอดมิน
-            </span>
-          ) : (
-            <span className="flex items-center gap-1">
-              <User className="h-3 w-3" />
-              สมาชิก
-            </span>
+        <div className="flex items-center gap-2">
+          <Badge
+            variant={member.role === 'admin' ? 'pending' : 'default'}
+            className="shrink-0"
+          >
+            {member.role === 'admin' ? (
+              <span className="flex items-center gap-1">
+                <Crown className="h-3 w-3" />
+                แอดมิน
+              </span>
+            ) : (
+              <span className="flex items-center gap-1">
+                <User className="h-3 w-3" />
+                สมาชิก
+              </span>
+            )}
+          </Badge>
+          {isAdmin && !isCurrentUser && member.role !== 'admin' && (
+            <button
+              type="button"
+              onClick={() => onKick(member.id)}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-50 text-rose-500 transition-colors hover:bg-rose-100"
+              aria-label="เตะออก"
+            >
+              <UserX className="h-4 w-4" />
+            </button>
           )}
-        </Badge>
+        </div>
       </CardContent>
     </Card>
   )

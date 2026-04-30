@@ -28,8 +28,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/transactions', label: 'รายการ', icon: ListOrdered },
   { href: '/debts', label: 'หนี้', icon: CreditCard },
-  { href: '/groups', label: 'กลุ่ม', icon: Users },
-  { href: '/settings/promptpay', label: 'ตั้งค่า', icon: Settings },
+  { href: '/settings', label: 'ตั้งค่า', icon: Settings },
 ]
 
 function isActive(pathname: string, href: string): boolean {

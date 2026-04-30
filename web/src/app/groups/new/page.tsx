@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { ArrowLeft, Loader2, CheckCircle2 } from 'lucide-react'
 import { useAuth } from '@/app/providers'
@@ -13,6 +13,7 @@ import { Input, Label } from '@/components/ui'
 
 export default function NewGroupPage() {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const { ready, error, authHeaders, retry } = useAuth()
   const [name, setName] = React.useState('')
   const [submitErr, setSubmitErr] = React.useState<string | null>(null)
@@ -22,9 +23,10 @@ export default function NewGroupPage() {
     mutationFn: () => api.createGroup(authHeaders, { name: name.trim() }),
     onSuccess: (data) => {
       setCreatedCode(data.code)
+      queryClient.invalidateQueries({ queryKey: ['groups'] })
       setTimeout(() => {
         router.push('/groups')
-      }, 2500)
+      }, 1500)
     },
     onError: (e: unknown) => {
       setSubmitErr(e instanceof Error ? e.message : 'เกิดข้อผิดพลาด')

@@ -1,14 +1,9 @@
-/**
- * Build EMV-spec PromptPay QR payload + render PNG buffer.
- * Caller is responsible for storing the PromptPayLink — this file only
- * formats identifiers and produces QR bytes.
- */
-import { generate } from 'promptparse'
+import generatePayload from 'promptpay-qr'
 import QRCode from 'qrcode'
 
 export type PromptPayKind = 'phone' | 'national_id'
 
-const PHONE_RE = /^0\d{9}$/ // Thai mobile, 10 digits starting 0
+const PHONE_RE = /^0\d{9}$/
 const NATIONAL_ID_RE = /^\d{13}$/
 
 export interface NormalizedPromptPay {
@@ -32,40 +27,21 @@ export function normalizePromptPayIdentifier(
   return null
 }
 
-/**
- * Format an identifier the way `promptparse` expects.
- * Phone: 0812345678 → 812345678 (leading 0 stripped; library prepends 66).
- * National ID: passed through untouched.
- */
-function formatForQrLib(p: NormalizedPromptPay): { type: 'MSISDN' | 'NATID'; target: string } {
-  if (p.kind === 'phone') {
-    return { type: 'MSISDN', target: p.identifier.slice(1) }
-  }
-  return { type: 'NATID', target: p.identifier }
-}
-
 export interface BuildPromptPayPayloadOpts {
   amountBaht?: number
 }
 
-/**
- * EMV QR payload string (the text encoded by the QR image).
- */
 export function buildPromptPayPayload(
   p: NormalizedPromptPay,
   opts: BuildPromptPayPayloadOpts = {},
 ): string {
-  const { type, target } = formatForQrLib(p)
-  return generate.anyId({
-    type,
-    target,
-    amount: opts.amountBaht,
-  })
+  const qrOpts: { amount?: number } = {}
+  if (opts.amountBaht !== undefined && opts.amountBaht > 0) {
+    qrOpts.amount = opts.amountBaht
+  }
+  return generatePayload(p.identifier, qrOpts)
 }
 
-/**
- * Render the QR payload as a PNG buffer. Defaults to 512x512, margin 2.
- */
 export async function renderPromptPayPng(
   p: NormalizedPromptPay,
   opts: BuildPromptPayPayloadOpts & { sizePx?: number } = {},

@@ -309,6 +309,14 @@ export const api = {
       headers: buildHeaders(auth),
     }).then((r) => handle<void>(r)),
 
+  getMyPromptPayQr: (auth: AuthHeaders, amountBaht?: number) =>
+    fetch(`${API_BASE}/me/promptpay/qr${amountBaht !== undefined ? `?amountSatang=${Math.round(amountBaht * 100)}` : ''}`, {
+      headers: buildHeaders(auth),
+    }).then((r) => {
+      if (!r.ok) throw new Error(`api error ${r.status}`)
+      return r.blob()
+    }),
+
   // ── Debts ────────────────────────────────────────────────────────────────
 
   listDebts: (
@@ -394,4 +402,20 @@ export const api = {
       method: 'DELETE',
       headers: buildHeaders(auth),
     }).then((r) => handle<{ success: boolean }>(r)),
+
+  kickGroupMember: (auth: AuthHeaders, groupId: string, memberId: string) =>
+    fetch(`${API_BASE}/groups/${groupId}/members/${memberId}`, {
+      method: 'DELETE',
+      headers: buildHeaders(auth),
+    }).then((r) => handle<{ success: boolean }>(r)),
+
+  generatePromptPayQr: (body: { identifier: string; kind: 'phone' | 'national_id'; amountBaht?: number }) =>
+    fetch(`${API_BASE}/promptpay/qr`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    }).then((r) => {
+      if (!r.ok) throw new Error(`api error ${r.status}`)
+      return r.blob()
+    }),
 }

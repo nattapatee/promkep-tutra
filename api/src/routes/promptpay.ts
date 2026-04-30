@@ -141,4 +141,38 @@ export async function promptPayRoutes(app: FastifyInstance) {
     reply.header('cache-control', 'public, max-age=600')
     return reply.send(png)
   })
+
+  const publicQrBody = z.object({
+    identifier: z.string().min(1),
+    kind: z.enum(['phone', 'national_id']),
+    amountBaht: z.number().positive().optional(),
+  })
+
+  app.post('/promptpay/qr', async (req, reply) => {
+    const parsed = publicQrBody.safeParse(req.body)
+    if (!parsed.success) {
+      return reply.status(400).send({ error: 'invalid_body', message: parsed.error.message })
+    }
+
+    const { identifier, kind, amountBaht } = parsed.data
+    const normalized = normalizePromptPayIdentifier(identifier, kind)
+    if (!normalized) {
+      return reply.status(422).send({
+        error: 'invalid_identifier',
+        message: kind === 'phone'
+          ? 'phone must be 10 digits starting with 0'
+          : 'national_id must be 13 digits',
+      })
+    }
+
+    const png = await renderPromptPayPng(
+      normalized,
+      { amountBaht },
+    )
+
+    reply.header('content-type', 'image/png')
+    reply.header('content-length', String(png.byteLength))
+    reply.header('cache-control', 'public, max-age=600')
+    return reply.send(png)
+  })
 }

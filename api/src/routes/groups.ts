@@ -248,23 +248,58 @@ export async function groupsRoutes(app: FastifyInstance) {
       return reply.status(404).send({ error: 'not_found', message: 'group not found or you are not a member' })
     }
 
-    if (membership.role === 'admin') {
-      const adminCount = await prisma.groupMember.count({
-        where: { groupId: params.data.id, role: 'admin' },
-      })
-      if (adminCount <= 1) {
-        return reply.status(403).send({
-          error: 'forbidden',
-          message: 'you are the only admin — transfer ownership or delete the group instead',
-        })
-      }
-    }
+    const memberCount = await prisma.groupMember.count({
+      where: { groupId: params.data.id },
+    })
 
     await prisma.groupMember.delete({
       where: { id: membership.id },
     })
 
-    return { success: true }
+    if (memberCount <= 1) {
+      await prisma.group.delete({ where: { id: params.data.id } })
+      return { success: true, destroyed: true }
+    }
+
+    return { success: true, destroyed: false }
+  })
+
+  app.delete('/groups/:id/members/:memberId', async (req, reply) => {
+    const caller = await authenticate(req, reply)
+    if (!caller) return
+
+    const params = z.object({ id: z.string().min(1), memberId: z.string().min(1) }).safeParse(req.params)
+    if (!params.success) {
+      return reply.status(400).send({ error: 'invalid_params', message: 'missing id or memberId' })
+    }
+
+    const callerMembership = await prisma.groupMember.findUnique({
+      where: { groupId_userId: { groupId: params.data.id, userId: caller.userId } },
+    })
+    if (!callerMembership || callerMembership.role !== 'admin') {
+      return reply.status(403).send({ error: 'forbidden', message: 'only admins can kick members' })
+    }
+
+    const targetMembership = await prisma.groupMember.findUnique({
+      where: { id: params.data.memberId },
+    })
+    if (!targetMembership || targetMembership.groupId !== params.data.id) {
+      return reply.status(404).send({ error: 'not_found', message: 'member not found' })
+    }
+
+    if (targetMembership.userId === caller.userId) {
+      return reply.status(400).send({ error: 'bad_request', message: 'cannot kick yourself' })
+    }
+
+    await prisma.groupMember.delete({ where: { id: targetMembership.id } })
+
+    const remainingCount = await prisma.groupMember.count({ where: { groupId: params.data.id } })
+    if (remainingCount === 0) {
+      await prisma.group.delete({ where: { id: params.data.id } })
+      return { success: true, destroyed: true }
+    }
+
+    return { success: true, destroyed: false }
   })
 
   app.delete('/groups/:id', async (req, reply) => {
