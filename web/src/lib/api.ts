@@ -93,6 +93,33 @@ export interface ApiDebtRequest {
 
 export type DebtRole = 'creditor' | 'debtor'
 
+export interface ApiGroup {
+  id: string
+  name: string
+  code: string
+  role: 'admin' | 'member'
+  memberCount: number
+  createdAt: string
+}
+
+export interface ApiGroupDetail {
+  id: string
+  name: string
+  code: string
+  memberCount: number
+  createdAt: string
+  isAdmin: boolean
+}
+
+export interface ApiGroupMember {
+  id: string
+  userId: string
+  displayName: string
+  avatarUrl: string | null
+  role: 'admin' | 'member'
+  joinedAt: string
+}
+
 export interface AuthHeaders {
   bearer?: string
   lineUserId?: string
@@ -173,6 +200,7 @@ export const api = {
       type?: 'income' | 'expense'
       categoryId?: number
       memberId?: string
+      groupId?: string
       page?: number
       pageSize?: number
     } = {},
@@ -285,11 +313,12 @@ export const api = {
 
   listDebts: (
     auth: AuthHeaders,
-    params: { role?: DebtRole; status?: DebtStatus } = {},
+    params: { role?: DebtRole; status?: DebtStatus; groupId?: string } = {},
   ) => {
     const qs = new URLSearchParams()
     if (params.role) qs.set('role', params.role)
     if (params.status) qs.set('status', params.status)
+    if (params.groupId) qs.set('groupId', params.groupId)
     const q = qs.toString()
     return fetch(`${API_BASE}/debts${q ? `?${q}` : ''}`, {
       headers: buildHeaders(auth),
@@ -322,4 +351,47 @@ export const api = {
     fetch(`${API_BASE}/users/search?q=${encodeURIComponent(query)}`, {
       headers: buildHeaders(auth),
     }).then((r) => handle<{ data: ApiUserMini[] }>(r)),
+
+  // ── Groups ───────────────────────────────────────────────────────────────
+
+  listGroups: (auth: AuthHeaders) =>
+    fetch(`${API_BASE}/groups`, { headers: buildHeaders(auth) }).then((r) =>
+      handle<{ groups: ApiGroup[] }>(r),
+    ),
+
+  createGroup: (auth: AuthHeaders, body: { name: string }) =>
+    fetch(`${API_BASE}/groups`, {
+      method: 'POST',
+      headers: buildHeaders(auth, true),
+      body: JSON.stringify(body),
+    }).then((r) => handle<{ id: string; name: string; code: string; createdAt: string }>(r)),
+
+  joinGroup: (auth: AuthHeaders, body: { code: string }) =>
+    fetch(`${API_BASE}/groups/join`, {
+      method: 'POST',
+      headers: buildHeaders(auth, true),
+      body: JSON.stringify(body),
+    }).then((r) => handle<{ id: string; name: string; joinedAt: string }>(r)),
+
+  getGroup: (auth: AuthHeaders, id: string) =>
+    fetch(`${API_BASE}/groups/${id}`, { headers: buildHeaders(auth) }).then((r) =>
+      handle<ApiGroupDetail>(r),
+    ),
+
+  getGroupMembers: (auth: AuthHeaders, id: string) =>
+    fetch(`${API_BASE}/groups/${id}/members`, { headers: buildHeaders(auth) }).then((r) =>
+      handle<{ members: ApiGroupMember[] }>(r),
+    ),
+
+  leaveGroup: (auth: AuthHeaders, id: string) =>
+    fetch(`${API_BASE}/groups/${id}/leave`, {
+      method: 'DELETE',
+      headers: buildHeaders(auth),
+    }).then((r) => handle<{ success: boolean }>(r)),
+
+  deleteGroup: (auth: AuthHeaders, id: string) =>
+    fetch(`${API_BASE}/groups/${id}`, {
+      method: 'DELETE',
+      headers: buildHeaders(auth),
+    }).then((r) => handle<{ success: boolean }>(r)),
 }

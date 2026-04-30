@@ -347,6 +347,57 @@ async function handleParsedTxn(
   await safeReply(event.replyToken!, [buildConfirmationBubble(txn)], log)
 }
 
+async function handleNuclearReset(
+  event: TextMessageEvent,
+  userId: string,
+  lineUserId: string,
+  log: BotLogger,
+): Promise<void> {
+  if (event.source?.userId !== lineUserId) {
+    log.warn({ userId }, 'bot.reset.invalid.source')
+    return
+  }
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.chatMessage.deleteMany({ where: { userId } })
+      await tx.transaction.deleteMany({ where: { createdById: userId } })
+      await tx.debtRequest.deleteMany({
+        where: { OR: [{ creditorId: userId }, { debtorId: userId }] },
+      })
+      await tx.groupMember.deleteMany({ where: { userId } })
+      await tx.group.deleteMany({ where: { createdById: userId } })
+      await tx.promptPayLink.deleteMany({ where: { userId } })
+      await tx.user.update({
+        where: { id: userId },
+        data: { registeredAt: null },
+      })
+    })
+
+    log.info({ userId }, 'user.data.reset.completed')
+    await safePush(
+      lineUserId,
+      [
+        textReply(
+          'ตุ๊ต๊ะล้างข้อมูลให้คุณเรียบร้อยแล้วครับ! 🌱💪 ข้อมูลทั้งหมดถูกลบออกจากระบบแล้ว',
+        ),
+      ],
+      log,
+    )
+  } catch (err) {
+    log.error({ err, userId }, 'user.data.reset.failed')
+    await safePush(
+      lineUserId,
+      [
+        textReply(
+          'ขออภัยครับ เกิดข้อผิดพลาดในการล้างข้อมูล กรุณาลองใหม่ภายหลัง',
+        ),
+      ],
+      log,
+    )
+  }
+}
+
 function parsePromptPayText(text: string): number | null {
   const m = text.match(/^ขอเงิน(?:\s+(\d+(?:\.\d+)?))?$/)
   if (!m) return null
@@ -433,6 +484,11 @@ export async function handleTextMessage(
   const debtAction = parseDebtActionText(text)
   if (debtAction) {
     await handleDebtAction(event, lineUserId, debtAction.action, debtAction.id, log)
+    return
+  }
+
+  if (text === 'มะม่วงสีเขียวกินนกสีขาว') {
+    await handleNuclearReset(event, user.id, lineUserId, log)
     return
   }
 

@@ -12,6 +12,7 @@ import { meRoutes } from '@/routes/me'
 import { registerRoutes } from '@/routes/register'
 import { promptPayRoutes } from '@/routes/promptpay'
 import { debtRoutes } from '@/routes/debts'
+import { groupsRoutes } from '@/routes/groups'
 import { qrRoutes } from '@/routes/qr'
 import { startReminderCron } from '@/lib/reminder-cron'
 
@@ -41,6 +42,7 @@ await app.register(meRoutes)
 await app.register(registerRoutes)
 await app.register(promptPayRoutes)
 await app.register(debtRoutes)
+await app.register(groupsRoutes)
 await app.register(qrRoutes)
 
 const port = Number(process.env.PORT ?? 3001)

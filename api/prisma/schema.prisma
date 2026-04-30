@@ -25,6 +25,8 @@ model User {
   promptPayLink  PromptPayLink?
   creditorDebts  DebtRequest[]   @relation("CreditorDebts")
   debtorDebts    DebtRequest[]   @relation("DebtorDebts")
+  createdGroups  Group[]         @relation("CreatedGroups")
+  groupMemberships GroupMember[] @relation("GroupMemberships")
 }
 
 /// Conversation turn for the AI secretary ("น้องเก็บ"). Auto-pruned by ttl.
@@ -65,12 +67,15 @@ model Transaction {
   occurredAt  DateTime
   createdById String
   createdBy   User         @relation(fields: [createdById], references: [id])
+  groupId     String?
+  group       Group?       @relation(fields: [groupId], references: [id], onDelete: SetNull)
   createdAt   DateTime     @default(now())
   attachments Attachment[]
 
   @@index([occurredAt])
   @@index([categoryId])
   @@index([createdById])
+  @@index([groupId])
 }
 
 /// Image (or any file) attached to a Transaction. Filepath relative to uploads/.
@@ -111,6 +116,8 @@ model DebtRequest {
   reason         String?
   dueAt          DateTime?
   status         String    @default("pending") // "pending" | "paid" | "rejected" | "later"
+  groupId        String?
+  group          Group?    @relation(fields: [groupId], references: [id], onDelete: SetNull)
   createdAt      DateTime  @default(now())
   resolvedAt     DateTime?
   reminderCount  Int       @default(0)
@@ -119,4 +126,37 @@ model DebtRequest {
   @@index([creditorId])
   @@index([debtorId])
   @@index([status])
+  @@index([groupId])
+}
+
+/// A finance-tracking group. Users join via a 6-digit code.
+model Group {
+  id           String        @id @default(cuid())
+  name         String
+  code         String        @unique
+  createdById  String
+  createdBy    User          @relation("CreatedGroups", fields: [createdById], references: [id], onDelete: Cascade)
+  members      GroupMember[]
+  transactions Transaction[]
+  debts        DebtRequest[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([code])
+  @@index([createdById])
+}
+
+/// Membership of a user in a group.
+model GroupMember {
+  id       String   @id @default(cuid())
+  groupId  String
+  group    Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User     @relation("GroupMemberships", fields: [userId], references: [id], onDelete: Cascade)
+  role     String   @default("member") // "admin" | "member"
+  joinedAt DateTime @default(now())
+
+  @@unique([groupId, userId])
+  @@index([groupId])
+  @@index([userId])
 }

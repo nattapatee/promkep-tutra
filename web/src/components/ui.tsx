@@ -7,16 +7,16 @@ import { motion, type HTMLMotionProps } from 'framer-motion'
 import { cn } from '@/lib/cn'
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-2xl text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 disabled:pointer-events-none disabled:opacity-50',
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-2xl text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-pink/40 disabled:pointer-events-none disabled:opacity-50',
   {
     variants: {
       variant: {
         default:
-          'bg-gradient-to-r from-[#FB7185] to-[#F59E0B] text-white shadow-md shadow-rose-200/50 hover:opacity-90 hover:shadow-lg active:scale-95',
+          'bg-accent-pink text-dark shadow-md shadow-accent-pink/30 hover:opacity-90 hover:shadow-lg active:scale-95',
         outline:
-          'border border-rose-200 bg-white/80 text-rose-700 hover:bg-rose-50 backdrop-blur',
-        ghost: 'text-zinc-700 hover:bg-rose-50',
-        destructive: 'bg-rose-500 text-white hover:bg-rose-600 shadow-md shadow-rose-200/50',
+          'border-2 border-secondary-green/40 bg-primary-white/80 text-secondary-green hover:bg-secondary-green/5 backdrop-blur',
+        ghost: 'text-dark/80 hover:bg-accent-pink/10',
+        destructive: 'bg-red-500 text-white hover:bg-red-600 shadow-md shadow-red-200/50',
       },
       size: {
         default: 'h-11 px-5 py-2',
@@ -57,7 +57,7 @@ export const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDi
     <div
       ref={ref}
       className={cn(
-        'rounded-3xl border border-rose-100/60 bg-white shadow-[0_4px_20px_rgba(251,113,133,0.10)]',
+        'rounded-3xl border border-secondary-green/20 bg-bg-cream shadow-[0_4px_20px_rgba(124,179,66,0.10)]',
         className,
       )}
       {...props}
@@ -76,7 +76,7 @@ export const MotionCard = React.forwardRef<
     animate={{ opacity: 1, y: 0 }}
     transition={{ duration: 0.35, ease: 'easeOut' }}
     className={cn(
-      'rounded-3xl border border-rose-100/60 bg-white shadow-[0_4px_20px_rgba(251,113,133,0.10)]',
+      'rounded-3xl border border-secondary-green/20 bg-bg-cream shadow-[0_4px_20px_rgba(124,179,66,0.10)]',
       className,
     )}
     {...props}
@@ -119,7 +119,7 @@ export const Input = React.forwardRef<
   <input
     ref={ref}
     className={cn(
-      'flex h-11 w-full rounded-2xl border border-rose-100 bg-white px-4 py-2 text-sm placeholder:text-zinc-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 disabled:opacity-50',
+      'flex h-11 w-full rounded-2xl border border-secondary-green/20 bg-primary-white px-4 py-2 text-sm placeholder:text-dark/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-pink/40 disabled:opacity-50',
       className,
     )}
     {...props}
@@ -133,7 +133,7 @@ export const Label = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <label
     ref={ref}
-    className={cn('text-sm font-medium text-zinc-700', className)}
+    className={cn('text-sm font-medium text-dark/80', className)}
     {...props}
   />
 ))
@@ -146,7 +146,7 @@ export const Textarea = React.forwardRef<
   <textarea
     ref={ref}
     className={cn(
-      'flex min-h-[88px] w-full rounded-2xl border border-rose-100 bg-white px-4 py-3 text-sm placeholder:text-zinc-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 disabled:opacity-50',
+      'flex min-h-[88px] w-full rounded-2xl border border-secondary-green/20 bg-primary-white px-4 py-3 text-sm placeholder:text-dark/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-pink/40 disabled:opacity-50',
       className,
     )}
     {...props}
@@ -160,14 +160,14 @@ export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
 
 export function Badge({ className, variant = 'default', ...props }: BadgeProps) {
   const variantCls = {
-    default: 'bg-rose-50 text-rose-700',
-    income: 'bg-emerald-100 text-emerald-700',
-    expense: 'bg-rose-100 text-rose-700',
-    outline: 'border border-rose-200 text-rose-700 bg-white/60 backdrop-blur',
-    pending: 'bg-amber-100 text-amber-700',
-    paid: 'bg-emerald-100 text-emerald-700',
+    default: 'bg-accent-pink/20 text-dark',
+    income: 'bg-secondary-green/20 text-secondary-green',
+    expense: 'bg-accent-pink/20 text-dark',
+    outline: 'border border-secondary-green/40 text-secondary-green bg-primary-white/60 backdrop-blur',
+    pending: 'bg-gold/20 text-dark',
+    paid: 'bg-secondary-green/20 text-secondary-green',
     rejected: 'bg-red-100 text-red-700',
-    later: 'bg-zinc-100 text-zinc-600',
+    later: 'bg-dark/10 text-dark/70',
   }[variant]
   return (
     <span

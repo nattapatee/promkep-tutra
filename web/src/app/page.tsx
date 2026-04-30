@@ -22,6 +22,7 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   CreditCard,
   Hash,
   ListOrdered,
@@ -31,10 +32,12 @@ import {
   Sun,
   TrendingDown,
   TrendingUp,
+  Users,
 } from 'lucide-react'
 import { useAuth } from './providers'
-import { api, type ApiTransaction, type MonthlyReport } from '@/lib/api'
+import { api, type ApiTransaction, type MonthlyReport, type ApiGroup } from '@/lib/api'
 import { Badge, Button, Card, CardContent } from '@/components/ui'
+import { MascotCard } from '@/components/MascotCard'
 import { PullToRefresh } from '@/components/PullToRefresh'
 import { bangkokMonthRangeIso, formatBaht } from '@/lib/format'
 import { cn } from '@/lib/cn'
@@ -173,10 +176,23 @@ export default function DashboardPage() {
   const initial = React.useMemo(() => getCurrentBangkokMonth(), [])
   const [year, setYear] = React.useState(initial.year)
   const [month, setMonth] = React.useState(initial.month)
+  const [selectedGroupId, setSelectedGroupId] = React.useState<string | null>(null)
+  const [showGroupSelector, setShowGroupSelector] = React.useState(false)
 
   const todayRange = React.useMemo(() => bangkokDayRangeIso(new Date()), [])
   // referenced to satisfy exhaustive-deps but used only for query invalidation
   void bangkokMonthRangeIso(year, month)
+
+  const groupsQuery = useQuery<{ groups: ApiGroup[] }>({
+    queryKey: ['groups', authHeaders.lineUserId],
+    queryFn: () => api.listGroups(authHeaders),
+    enabled: ready,
+  })
+
+  const selectedGroup = React.useMemo(() => {
+    if (!selectedGroupId) return null
+    return groupsQuery.data?.groups.find((g) => g.id === selectedGroupId) ?? null
+  }, [selectedGroupId, groupsQuery.data])
 
   const {
     data,
@@ -198,18 +214,24 @@ export default function DashboardPage() {
   })
 
   const recentQuery = useQuery({
-    queryKey: ['recentTransactions', authHeaders.lineUserId],
-    queryFn: () => api.listTransactions(authHeaders, { pageSize: 6, page: 1 }),
+    queryKey: ['recentTransactions', authHeaders.lineUserId, selectedGroupId],
+    queryFn: () =>
+      api.listTransactions(authHeaders, {
+        pageSize: 6,
+        page: 1,
+        ...(selectedGroupId ? { groupId: selectedGroupId } : {}),
+      }),
     enabled: ready,
   })
 
   const todayQuery = useQuery({
-    queryKey: ['todayTransactions', authHeaders.lineUserId, todayRange.from, todayRange.to],
+    queryKey: ['todayTransactions', authHeaders.lineUserId, todayRange.from, todayRange.to, selectedGroupId],
     queryFn: () =>
       api.listTransactions(authHeaders, {
         from: todayRange.from,
         to: todayRange.to,
         pageSize: 100,
+        ...(selectedGroupId ? { groupId: selectedGroupId } : {}),
       }),
     enabled: ready,
   })
@@ -229,8 +251,12 @@ export default function DashboardPage() {
   })
 
   const debtsQuery = useQuery({
-    queryKey: ['debts', 'pending', authHeaders.lineUserId],
-    queryFn: () => api.listDebts(authHeaders, { status: 'pending' }),
+    queryKey: ['debts', 'pending', authHeaders.lineUserId, selectedGroupId],
+    queryFn: () =>
+      api.listDebts(authHeaders, {
+        status: 'pending',
+        ...(selectedGroupId ? { groupId: selectedGroupId } : {}),
+      }),
     enabled: ready,
   })
 
@@ -316,16 +342,93 @@ export default function DashboardPage() {
       queryClient.invalidateQueries({ queryKey: ['recentTransactions'] }),
       queryClient.invalidateQueries({ queryKey: ['todayTransactions'] }),
       queryClient.invalidateQueries({ queryKey: ['debts'] }),
+      queryClient.invalidateQueries({ queryKey: ['groups'] }),
     ])
     await refetch()
   }
 
+  const groups = groupsQuery.data?.groups ?? []
+  const isGroupView = !!selectedGroupId
+
   return (
     <PullToRefresh onRefresh={handleRefresh}>
       <div className="space-y-6">
-        {/* Hero card */}
-        <Section index={0}>
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-rose-400 via-rose-500 to-amber-500 p-6 text-white shadow-xl shadow-rose-300/40">
+        {groups.length > 0 && (
+          <Section index={0}>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowGroupSelector((s) => !s)}
+                className={cn(
+                  'flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-sm font-semibold transition-all',
+                  isGroupView
+                    ? 'border-secondary-green/40 bg-secondary-green/5 text-secondary-green'
+                    : 'border-amber-100/60 bg-white/80 text-zinc-700 backdrop-blur',
+                )}
+              >
+                <span className="flex items-center gap-2">
+                  <Users className="h-4 w-4" />
+                  {isGroupView ? selectedGroup?.name : 'ส่วนตัว'}
+                </span>
+                <ChevronDown
+                  className={cn(
+                    'h-4 w-4 transition-transform',
+                    showGroupSelector && 'rotate-180',
+                  )}
+                />
+              </button>
+              {showGroupSelector && (
+                <div className="absolute z-20 mt-1 w-full rounded-2xl border border-amber-100/60 bg-white p-1.5 shadow-lg">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedGroupId(null)
+                      setShowGroupSelector(false)
+                    }}
+                    className={cn(
+                      'flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm transition-colors',
+                      !isGroupView
+                        ? 'bg-rose-50 text-rose-600 font-semibold'
+                        : 'text-zinc-700 hover:bg-zinc-50',
+                    )}
+                  >
+                    <Users className="h-4 w-4" />
+                    ส่วนตัว
+                  </button>
+                  {groups.map((g) => (
+                    <button
+                      key={g.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedGroupId(g.id)
+                        setShowGroupSelector(false)
+                      }}
+                      className={cn(
+                        'flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm transition-colors',
+                        selectedGroupId === g.id
+                          ? 'bg-rose-50 text-rose-600 font-semibold'
+                          : 'text-zinc-700 hover:bg-zinc-50',
+                      )}
+                    >
+                      <Users className="h-4 w-4" />
+                      {g.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </Section>
+        )}
+
+        <Section index={1}>
+          <div
+            className={cn(
+              'relative overflow-hidden rounded-3xl p-6 text-white shadow-xl',
+              isGroupView
+                ? 'bg-gradient-to-br from-emerald-400 via-emerald-500 to-teal-500 shadow-emerald-300/40'
+                : 'bg-gradient-to-br from-rose-400 via-rose-500 to-amber-500 shadow-rose-300/40',
+            )}
+          >
             <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
             <div className="absolute -bottom-12 -left-6 h-36 w-36 rounded-full bg-amber-300/20 blur-2xl" />
             <div
@@ -339,6 +442,11 @@ export default function DashboardPage() {
               <div className="mb-1 flex items-center gap-2 text-sm text-white/80">
                 <Sparkles className="h-4 w-4" />
                 <span>เดือน {monthLabel}</span>
+                {isGroupView && (
+                  <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-bold backdrop-blur">
+                    {selectedGroup?.name}
+                  </span>
+                )}
               </div>
               <p className="text-xs uppercase tracking-wider text-white/70">สุทธิ</p>
               <p className="mt-1 text-4xl font-extrabold tracking-tight [letter-spacing:-0.02em]">
@@ -393,8 +501,7 @@ export default function DashboardPage() {
           </div>
         </Section>
 
-        {/* Month picker */}
-        <Section index={1}>
+        <Section index={2}>
           <div className="flex items-center justify-center gap-2">
             <button
               onClick={() => shiftMonth(-1)}
@@ -419,29 +526,28 @@ export default function DashboardPage() {
           </div>
         </Section>
 
-        {/* Quick actions */}
-        <Section index={2}>
+        <Section index={3}>
           <div className="grid grid-cols-4 gap-2">
             <Button asChild className="h-12 flex-col gap-0.5 text-xs">
-              <Link href="/transactions/new">
+              <Link href={isGroupView ? `/transactions/new?groupId=${selectedGroupId}` : '/transactions/new'}>
                 <Plus className="h-4 w-4" />
-                เพิ่มรายการ
+                {isGroupView ? 'เพิ่มรายการกลุ่ม' : 'เพิ่มรายการ'}
               </Link>
             </Button>
             <Button asChild variant="outline" className="h-12 flex-col gap-0.5 text-xs">
-              <Link href="/transactions">
+              <Link href={isGroupView ? `/transactions?groupId=${selectedGroupId}` : '/transactions'}>
                 <ListOrdered className="h-4 w-4" />
                 ดูทั้งหมด
               </Link>
             </Button>
             <Button asChild variant="outline" className="h-12 flex-col gap-0.5 text-xs">
-              <Link href="/debts/new">
+              <Link href={isGroupView ? `/debts/new?groupId=${selectedGroupId}` : '/debts/new'}>
                 <CreditCard className="h-4 w-4" />
-                ขอเงิน
+                {isGroupView ? 'ขอเงินกลุ่ม' : 'ขอเงิน'}
               </Link>
             </Button>
             <Button asChild variant="outline" className="h-12 flex-col gap-0.5 text-xs">
-              <Link href="/debts">
+              <Link href={isGroupView ? `/debts?groupId=${selectedGroupId}` : '/debts'}>
                 <CreditCard className="h-4 w-4" />
                 หนี้
               </Link>
@@ -455,11 +561,10 @@ export default function DashboardPage() {
           </p>
         )}
 
-        {/* Outstanding debts */}
         {pendingDebtCount > 0 && (
-          <Section index={3}>
+          <Section index={4}>
             <SectionHeading title="หนี้ค้างชำระ" />
-            <Link href="/debts">
+            <Link href={isGroupView ? `/debts?groupId=${selectedGroupId}` : '/debts'}>
               <Card className={cn(ELEGANT_CARD_CLS, 'transition-all hover:shadow-md')}>
                 <CardContent className="flex items-center justify-between gap-3 py-4">
                   <div className="flex items-center gap-3">
@@ -480,9 +585,8 @@ export default function DashboardPage() {
           </Section>
         )}
 
-        {/* Today's snapshot */}
         {todayCount > 0 && (
-          <Section index={4}>
+          <Section index={5}>
             <SectionHeading title="วันนี้" />
             <Card className={ELEGANT_CARD_CLS}>
               <CardContent className="flex items-center justify-between gap-3 py-4">
@@ -517,8 +621,7 @@ export default function DashboardPage() {
           </Section>
         )}
 
-        {/* 6-month trend — charts temporarily disabled (recharts bug #7160) */}
-        <Section index={5}>
+        <Section index={6}>
           <SectionHeading title="เทรนด์ 6 เดือน" />
           <Card className={ELEGANT_CARD_CLS}>
             <CardContent className="py-6 text-center">
@@ -527,8 +630,7 @@ export default function DashboardPage() {
           </Card>
         </Section>
 
-        {/* Category breakdown — charts temporarily disabled (recharts bug #7160) */}
-        <Section index={6}>
+        <Section index={7}>
           <SectionHeading title="สัดส่วนตามหมวด" />
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Card className={ELEGANT_CARD_CLS}>
@@ -544,9 +646,8 @@ export default function DashboardPage() {
           </div>
         </Section>
 
-        {/* Top 5 expense */}
         {expenseTopFive.length > 0 && (
-          <Section index={7}>
+          <Section index={8}>
             <SectionHeading title="Top 5 หมวดรายจ่าย" />
             <Card className={ELEGANT_CARD_CLS}>
               <CardContent className="pt-5">
@@ -578,13 +679,12 @@ export default function DashboardPage() {
           </Section>
         )}
 
-        {/* Recent transactions */}
-        <Section index={8}>
+        <Section index={9}>
           <SectionHeading
-            title="รายการล่าสุด"
+            title={isGroupView ? `รายการล่าสุด · ${selectedGroup?.name}` : 'รายการล่าสุด'}
             action={
               <Link
-                href="/transactions"
+                href={isGroupView ? `/transactions?groupId=${selectedGroupId}` : '/transactions'}
                 className="flex items-center gap-1 text-xs font-semibold"
                 style={{ color: GOLD }}
               >
@@ -598,7 +698,12 @@ export default function DashboardPage() {
             <Card className={ELEGANT_CARD_CLS}>
               <CardContent className="pt-3">
                 {(recentQuery.data?.data ?? []).length === 0 ? (
-                  <p className="py-6 text-center text-sm text-zinc-400">ยังไม่มีรายการ</p>
+                  <div className="flex flex-col items-center gap-2 py-8">
+                    <Receipt className="h-8 w-8 text-zinc-300" />
+                    <p className="text-sm text-zinc-400">
+                      {isGroupView ? 'ยังไม่มีรายการในกลุ่มนี้' : 'ยังไม่มีรายการ'}
+                    </p>
+                  </div>
                 ) : (
                   <ul className="divide-y divide-amber-50">
                     {(recentQuery.data?.data ?? []).slice(0, 6).map((t) => (

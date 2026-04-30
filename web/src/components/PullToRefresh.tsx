@@ -12,14 +12,14 @@ interface PullToRefreshProps {
 }
 
 const defaultPullingContent = (
-  <div className="flex items-center justify-center gap-2 py-3 text-sm text-rose-600">
+  <div className="flex items-center justify-center gap-2 py-3 text-sm text-secondary-green">
     <RefreshCw className="h-4 w-4" />
     <span>ปล่อยเพื่อรีเฟรช</span>
   </div>
 )
 
 const defaultRefreshingContent = (
-  <div className="flex items-center justify-center gap-2 py-3 text-sm text-rose-600">
+  <div className="flex items-center justify-center gap-2 py-3 text-sm text-secondary-green">
     <RefreshCw className="h-4 w-4 animate-spin" />
     <span>กำลังโหลด...</span>
   </div>

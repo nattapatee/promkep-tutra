@@ -1,0 +1,95 @@
+{
+  "active_plan": "/Users/tee/src/promkep-tutra/.sisyphus/plans/mascot-2.0.md",
+  "started_at": "2026-04-30T15:34:23.634Z",
+  "session_ids": [
+    "ses_2262a98b5ffeerX5YxwDvZSm0Z"
+  ],
+  "session_origins": {
+    "ses_2262a98b5ffeerX5YxwDvZSm0Z": "direct"
+  },
+  "plan_name": "mascot-2.0",
+  "agent": "atlas",
+  "task_sessions": {
+    "todo:1": {
+      "task_key": "todo:1",
+      "task_label": "1",
+      "task_title": "Database Schema Migration",
+      "session_id": "ses_220f51cd4ffecF2VPzlYWImQvh",
+      "agent": "Sisyphus-Junior",
+      "category": "unspecified-high",
+      "updated_at": "2026-04-30T15:41:45.143Z"
+    },
+    "todo:2": {
+      "task_key": "todo:2",
+      "task_label": "2",
+      "task_title": "Group API Routes",
+      "session_id": "ses_220f1114bffeEoT5dPoTfsAiIT",
+      "agent": "Sisyphus-Junior",
+      "category": "unspecified-high",
+      "updated_at": "2026-04-30T15:50:04.699Z"
+    },
+    "todo:3": {
+      "task_key": "todo:3",
+      "task_label": "3",
+      "task_title": "Update Transaction/Debt APIs",
+      "session_id": "ses_220e7b2f0ffeYpd7E4dlT62l6A",
+      "agent": "Sisyphus-Junior",
+      "category": "unspecified-high",
+      "updated_at": "2026-04-30T16:00:43.212Z"
+    },
+    "todo:4": {
+      "task_key": "todo:4",
+      "task_label": "4",
+      "task_title": "Fix PromptPay QR",
+      "session_id": "ses_220df2b0cffeNEOn1tlBlqKINq",
+      "agent": "Sisyphus-Junior",
+      "category": "unspecified-high",
+      "updated_at": "2026-04-30T16:10:07.346Z"
+    },
+    "todo:5": {
+      "task_key": "todo:5",
+      "task_label": "5",
+      "task_title": "LINE Bot Reset Command",
+      "session_id": "ses_220d72ba3ffewsrK57aP6YFThm",
+      "agent": "Sisyphus-Junior",
+      "category": "unspecified-high",
+      "updated_at": "2026-04-30T16:16:59.135Z"
+    },
+    "todo:6": {
+      "task_key": "todo:6",
+      "task_label": "6",
+      "task_title": "UI Theme Update",
+      "session_id": "ses_220d10092ffegMgelSQj7RgTKb",
+      "agent": "Sisyphus-Junior",
+      "category": "visual-engineering",
+      "updated_at": "2026-04-30T16:25:06.628Z"
+    },
+    "todo:7": {
+      "task_key": "todo:7",
+      "task_label": "7",
+      "task_title": "Group Pages",
+      "session_id": "ses_220c9b7e4ffeHQdtZ61WJaf02y",
+      "agent": "Sisyphus-Junior",
+      "category": "visual-engineering",
+      "updated_at": "2026-04-30T16:40:48.922Z"
+    },
+    "todo:8": {
+      "task_key": "todo:8",
+      "task_label": "8",
+      "task_title": "Update Dashboard",
+      "session_id": "ses_220bb68f9ffeAX8vfm1x44lxGE",
+      "agent": "Sisyphus-Junior",
+      "category": "visual-engineering",
+      "updated_at": "2026-04-30T17:00:12.375Z"
+    },
+    "todo:9": {
+      "task_key": "todo:9",
+      "task_label": "9",
+      "task_title": "Mascot Animations",
+      "session_id": "ses_220a93e98ffeDru4jpoGQwAnpY",
+      "agent": "Sisyphus-Junior",
+      "category": "visual-engineering",
+      "updated_at": "2026-04-30T17:08:25.601Z"
+    }
+  }
+}

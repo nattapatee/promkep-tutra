@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { getCaller, AuthError, type CallerIdentity } from '@/lib/auth'
-import { normalizePromptPayIdentifier } from '@/lib/promptpay'
+import { normalizePromptPayIdentifier, renderPromptPayPng, type PromptPayKind } from '@/lib/promptpay'
 
 async function authenticate(req: FastifyRequest, reply: FastifyReply): Promise<CallerIdentity | null> {
   try {
@@ -74,5 +74,71 @@ export async function promptPayRoutes(app: FastifyInstance) {
     }
     await prisma.promptPayLink.delete({ where: { userId: caller.userId } })
     return reply.status(204).send()
+  })
+
+  const qrQuery = z.object({
+    amountSatang: z.coerce.number().int().nonnegative().optional(),
+  })
+
+  app.get('/me/promptpay/qr', async (req, reply) => {
+    const caller = await authenticate(req, reply)
+    if (!caller) return
+
+    const link = await prisma.promptPayLink.findUnique({ where: { userId: caller.userId } })
+    if (!link) {
+      return reply.status(404).send({ error: 'not_found', message: 'no promptpay link configured' })
+    }
+
+    const parsed = qrQuery.safeParse(req.query)
+    if (!parsed.success) {
+      return reply.status(400).send({ error: 'invalid_query', message: parsed.error.message })
+    }
+
+    const { amountSatang } = parsed.data
+    const amountBaht =
+      typeof amountSatang === 'number' && amountSatang > 0
+        ? amountSatang / 100
+        : undefined
+
+    const png = await renderPromptPayPng(
+      { identifier: link.identifier, kind: link.kind as PromptPayKind },
+      { amountBaht },
+    )
+
+    reply.header('content-type', 'image/png')
+    reply.header('content-length', String(png.byteLength))
+    reply.header('cache-control', 'public, max-age=600')
+    return reply.send(png)
+  })
+
+  const qrBody = z.object({
+    amountBaht: z.number().positive().optional(),
+  })
+
+  app.post('/me/promptpay/qr', async (req, reply) => {
+    const caller = await authenticate(req, reply)
+    if (!caller) return
+
+    const link = await prisma.promptPayLink.findUnique({ where: { userId: caller.userId } })
+    if (!link) {
+      return reply.status(404).send({ error: 'not_found', message: 'no promptpay link configured' })
+    }
+
+    const parsed = qrBody.safeParse(req.body)
+    if (!parsed.success) {
+      return reply.status(400).send({ error: 'invalid_body', message: parsed.error.message })
+    }
+
+    const { amountBaht } = parsed.data
+
+    const png = await renderPromptPayPng(
+      { identifier: link.identifier, kind: link.kind as PromptPayKind },
+      { amountBaht },
+    )
+
+    reply.header('content-type', 'image/png')
+    reply.header('content-length', String(png.byteLength))
+    reply.header('cache-control', 'public, max-age=600')
+    return reply.send(png)
   })
 }

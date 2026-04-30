@@ -20,6 +20,7 @@ async function authenticate(req: FastifyRequest, reply: FastifyReply): Promise<C
 const listQuery = z.object({
   role: z.enum(['creditor', 'debtor']).optional(),
   status: z.string().optional(),
+  groupId: z.string().optional(),
 })
 
 const createBody = z.object({
@@ -27,6 +28,7 @@ const createBody = z.object({
   amountBaht: z.number().positive(),
   reason: z.string().optional(),
   dueAt: z.string().datetime().optional(),
+  groupId: z.string().optional(),
 })
 
 const patchBody = z.object({
@@ -45,9 +47,23 @@ export async function debtRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: 'invalid_query', message: parsed.error.message })
     }
 
-    const { role, status } = parsed.data
+    const { role, status, groupId } = parsed.data
+
+    if (groupId) {
+      const membership = await prisma.groupMember.findUnique({
+        where: { groupId_userId: { groupId, userId: caller.userId } },
+      })
+      if (!membership) {
+        return reply.status(403).send({ error: 'forbidden', message: 'not a member of this group' })
+      }
+    }
 
     const where: Record<string, unknown> = {}
+    if (groupId) {
+      where.groupId = groupId
+    } else {
+      where.groupId = null
+    }
     if (role === 'creditor') {
       where.creditorId = caller.userId
     } else if (role === 'debtor') {
@@ -79,7 +95,7 @@ export async function debtRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: 'invalid_body', message: parsed.error.message })
     }
 
-    const { debtorLineUserId, amountBaht, reason, dueAt } = parsed.data
+    const { debtorLineUserId, amountBaht, reason, dueAt, groupId } = parsed.data
 
     if (debtorLineUserId === caller.lineUserId) {
       return reply.status(422).send({ error: 'self_debt', message: 'cannot create debt with yourself' })
@@ -90,6 +106,23 @@ export async function debtRoutes(app: FastifyInstance) {
       return reply.status(404).send({ error: 'debtor_not_found', message: 'debtor user not found' })
     }
 
+    if (groupId) {
+      const [callerMembership, debtorMembership] = await Promise.all([
+        prisma.groupMember.findUnique({
+          where: { groupId_userId: { groupId, userId: caller.userId } },
+        }),
+        prisma.groupMember.findUnique({
+          where: { groupId_userId: { groupId, userId: debtor.id } },
+        }),
+      ])
+      if (!callerMembership) {
+        return reply.status(403).send({ error: 'forbidden', message: 'you are not a member of this group' })
+      }
+      if (!debtorMembership) {
+        return reply.status(403).send({ error: 'forbidden', message: 'debtor is not a member of this group' })
+      }
+    }
+
     const debt = await prisma.debtRequest.create({
       data: {
         creditorId: caller.userId,
@@ -98,6 +131,7 @@ export async function debtRoutes(app: FastifyInstance) {
         reason: reason ?? null,
         dueAt: dueAt ? new Date(dueAt) : null,
         status: 'pending',
+        groupId: groupId ?? null,
       },
       include: {
         creditor: { select: { id: true, displayName: true } },

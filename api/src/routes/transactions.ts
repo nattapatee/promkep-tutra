@@ -13,6 +13,7 @@ const listQuery = z.object({
   to: z.string().datetime().optional(),
   type: transactionType.optional(),
   categoryId: z.coerce.number().int().positive().optional(),
+  groupId: z.string().optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(50),
 })
@@ -24,6 +25,7 @@ const createBody = z.object({
   occurredAt: z.string().datetime(),
   title: z.string().min(1).max(80).optional(),
   note: z.string().max(1000).optional(),
+  groupId: z.string().optional(),
 })
 
 const updateBody = createBody.partial()
@@ -107,10 +109,21 @@ export async function transactionRoutes(app: FastifyInstance) {
     if (!parsed.success) {
       return reply.status(400).send({ error: 'invalid_query', message: zodMessage(parsed.error.issues) })
     }
-    const { from, to, type, categoryId, page, pageSize } = parsed.data
-    // PromKep-Tutra is private-per-user — every list scoped to caller.
+    const { from, to, type, categoryId, groupId, page, pageSize } = parsed.data
+
+    if (groupId) {
+      const membership = await prisma.groupMember.findUnique({
+        where: { groupId_userId: { groupId, userId: caller.userId } },
+      })
+      if (!membership) {
+        return reply.status(403).send({ error: 'forbidden', message: 'not a member of this group' })
+      }
+    }
+
     const where = {
-      createdById: caller.userId,
+      ...(groupId
+        ? { groupId }
+        : { createdById: caller.userId, groupId: null }),
       ...(type ? { type } : {}),
       ...(categoryId ? { categoryId } : {}),
       ...(from || to
@@ -144,7 +157,16 @@ export async function transactionRoutes(app: FastifyInstance) {
     if (!parsed.success) {
       return reply.status(400).send({ error: 'invalid_body', message: zodMessage(parsed.error.issues) })
     }
-    const { type, amountBaht, categoryId, occurredAt, title, note } = parsed.data
+    const { type, amountBaht, categoryId, occurredAt, title, note, groupId } = parsed.data
+
+    if (groupId) {
+      const membership = await prisma.groupMember.findUnique({
+        where: { groupId_userId: { groupId, userId: caller.userId } },
+      })
+      if (!membership) {
+        return reply.status(403).send({ error: 'forbidden', message: 'not a member of this group' })
+      }
+    }
 
     const occurredAtDate = new Date(occurredAt)
     if (occurredAtDate.getTime() > Date.now()) {
@@ -171,6 +193,7 @@ export async function transactionRoutes(app: FastifyInstance) {
         title,
         note,
         createdById: caller.userId,
+        groupId: groupId ?? null,
       },
       include: transactionInclude,
     })
