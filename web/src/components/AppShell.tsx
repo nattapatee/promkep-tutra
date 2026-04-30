@@ -11,7 +11,6 @@ import {
   Plus,
   CreditCard,
   Settings,
-  Users,
 } from 'lucide-react'
 import { useAuth } from '@/app/providers'
 import { api, type ApiUser } from '@/lib/api'
@@ -150,7 +149,7 @@ export function AppShell({ children }: AppShellProps) {
               <Plus className="h-6 w-6" />
             </Link>
 
-            {[NAV_ITEMS[3], NAV_ITEMS[4]].map(({ href, label, icon: Icon }) => {
+            {[NAV_ITEMS[3]].map(({ href, label, icon: Icon }) => {
               const active = isActive(pathname, href)
               return (
                 <Link
