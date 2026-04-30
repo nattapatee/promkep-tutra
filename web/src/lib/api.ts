@@ -418,4 +418,11 @@ export const api = {
       if (!r.ok) throw new Error(`api error ${r.status}`)
       return r.blob()
     }),
+
+  chatWithSecretary: (auth: AuthHeaders, message: string) =>
+    fetch(`${API_BASE}/chat`, {
+      method: 'POST',
+      headers: buildHeaders(auth, true),
+      body: JSON.stringify({ message }),
+    }).then((r) => handle<{ response: string }>(r)),
 }

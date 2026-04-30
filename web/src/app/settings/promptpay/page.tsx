@@ -478,23 +478,38 @@ export default function PromptPaySettingsPage() {
       {qrUrl && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur">
           <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="relative w-full max-w-sm rounded-3xl bg-white p-6 shadow-xl"
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            transition={{ type: 'spring', stiffness: 360, damping: 28 }}
+            className="relative w-full max-w-sm overflow-hidden rounded-3xl bg-white p-6 shadow-2xl"
           >
+            <div className="absolute -right-8 -top-8 h-24 w-24 rounded-full bg-accent-pink/10 blur-2xl" />
+            <div className="absolute -left-8 -bottom-8 h-24 w-24 rounded-full bg-secondary-green/10 blur-2xl" />
             <button
               type="button"
               onClick={closeQr}
-              className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-zinc-100 text-zinc-500"
+              className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-zinc-100 text-zinc-500 transition-colors hover:bg-rose-100 hover:text-rose-500"
             >
               <X className="h-4 w-4" />
             </button>
-            <p className="mb-4 text-center text-sm font-semibold text-zinc-700">สแกนเพื่อชำระเงิน</p>
-            <img src={qrUrl} alt="PromptPay QR" className="mx-auto w-full max-w-[280px] rounded-2xl" />
+            <div className="relative mb-4 flex flex-col items-center gap-2">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-secondary-green to-emerald-400 text-white shadow-md">
+                <QrCode className="h-6 w-6" />
+              </div>
+              <p className="text-center text-sm font-bold text-zinc-800">สแกนเพื่อชำระเงิน</p>
+              <p className="text-center text-xs text-zinc-500">ผ่านแอปธนาคารหรือ TrueMoney</p>
+            </div>
+            <div className="relative mx-auto w-full max-w-[280px] rounded-2xl border-4 border-secondary-green/20 bg-white p-3 shadow-lg">
+              <img src={qrUrl} alt="PromptPay QR" className="w-full rounded-xl" />
+              <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-accent-pink to-rose-400 px-3 py-1 text-[10px] font-bold text-white shadow-md">
+                PromptPay
+              </div>
+            </div>
             <a
               href={qrUrl}
               download="promptpay-qr.png"
-              className="mt-4 flex items-center justify-center gap-2 rounded-2xl bg-secondary-green py-3 text-sm font-bold text-white"
+              className="relative mt-6 flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-secondary-green to-emerald-500 py-3 text-sm font-bold text-white shadow-lg shadow-secondary-green/30 transition-transform active:scale-95"
             >
               <Download className="h-4 w-4" />
               ดาวน์โหลด QR

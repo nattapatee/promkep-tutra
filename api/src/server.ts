@@ -14,6 +14,7 @@ import { promptPayRoutes } from '@/routes/promptpay'
 import { debtRoutes } from '@/routes/debts'
 import { groupsRoutes } from '@/routes/groups'
 import { qrRoutes } from '@/routes/qr'
+import { chatRoutes } from '@/routes/chat'
 import { startReminderCron } from '@/lib/reminder-cron'
 
 const app = Fastify({
@@ -44,6 +45,7 @@ await app.register(promptPayRoutes)
 await app.register(debtRoutes)
 await app.register(groupsRoutes)
 await app.register(qrRoutes)
+await app.register(chatRoutes)
 
 const port = Number(process.env.PORT ?? 3001)
 const host = '0.0.0.0'
