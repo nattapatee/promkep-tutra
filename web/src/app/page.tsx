@@ -3,17 +3,17 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
-import {
-  Bar,
-  BarChart,
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts'
+// import {
+//   Bar,
+//   BarChart,
+//   Cell,
+//   Pie,
+//   PieChart,
+//   ResponsiveContainer,
+//   Tooltip,
+//   XAxis,
+//   YAxis,
+// } from 'recharts'
 import { motion } from 'framer-motion'
 import { formatDistanceToNow } from 'date-fns'
 import { th } from 'date-fns/locale'
@@ -517,212 +517,31 @@ export default function DashboardPage() {
           </Section>
         )}
 
-        {/* 6-month trend */}
+        {/* 6-month trend — charts temporarily disabled (recharts bug #7160) */}
         <Section index={5}>
           <SectionHeading title="เทรนด์ 6 เดือน" />
-          {trendQueries.some((q) => q.isLoading) ? (
-            <SkeletonCard heightClass="h-48" />
-          ) : (
-            <Card className={ELEGANT_CARD_CLS}>
-              <CardContent className="pt-5">
-                {trendData.length === 0 ? (
-                  <p className="text-sm text-zinc-400">ยังไม่มีข้อมูล</p>
-                ) : (
-                  <div className="h-[180px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        data={trendData}
-                        margin={{ top: 4, right: 4, left: -16, bottom: 0 }}
-                      >
-                        <XAxis
-                          dataKey="label"
-                          tick={{ fontSize: 11, fill: '#71717A' }}
-                          axisLine={{ stroke: '#E5E0D5' }}
-                          tickLine={false}
-                        />
-                        <YAxis
-                          tick={{ fontSize: 10, fill: '#A1A1AA' }}
-                          axisLine={false}
-                          tickLine={false}
-                          tickFormatter={(v: number) =>
-                            v >= 1000 ? `${Math.round(v / 1000)}k` : String(v)
-                          }
-                        />
-                        <Tooltip
-                          formatter={(value) =>
-                            typeof value === 'number' ? formatBaht(value) : String(value)
-                          }
-                          contentStyle={{
-                            borderRadius: 12,
-                            border: '1px solid #F5E9CF',
-                            fontSize: 12,
-                          }}
-                        />
-                        <Bar
-                          dataKey="income"
-                          fill="#10B981"
-                          radius={[6, 6, 0, 0]}
-                          maxBarSize={18}
-                          name="รายรับ"
-                        />
-                        <Bar
-                          dataKey="expense"
-                          fill="#FB7185"
-                          radius={[6, 6, 0, 0]}
-                          maxBarSize={18}
-                          name="รายจ่าย"
-                        />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
+          <Card className={ELEGANT_CARD_CLS}>
+            <CardContent className="py-6 text-center">
+              <p className="text-sm text-zinc-400">กราฟอยู่ระหว่างปรับปรุง</p>
+            </CardContent>
+          </Card>
         </Section>
 
-        {/* Category breakdown */}
+        {/* Category breakdown — charts temporarily disabled (recharts bug #7160) */}
         <Section index={6}>
           <SectionHeading title="สัดส่วนตามหมวด" />
-          {isLoading ? (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <SkeletonCard heightClass="h-56" />
-              <SkeletonCard heightClass="h-56" />
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Card className={ELEGANT_CARD_CLS}>
-                <CardContent className="pt-5">
-                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-rose-600">
-                    รายจ่าย
-                  </h3>
-                  {expensePie.length === 0 ? (
-                    <p className="text-sm text-zinc-400">ยังไม่มีรายจ่าย</p>
-                  ) : (
-                    <>
-                      <div className="h-44 w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <PieChart>
-                            <Pie
-                              data={expensePie}
-                              dataKey="value"
-                              nameKey="name"
-                              innerRadius={42}
-                              outerRadius={70}
-                              paddingAngle={2}
-                              stroke="#FFF8EE"
-                              strokeWidth={1.5}
-                            >
-                              {expensePie.map((d, i) => (
-                                <Cell key={i} fill={d.fill} />
-                              ))}
-                            </Pie>
-                            <Tooltip
-                              formatter={(value) =>
-                                typeof value === 'number' ? formatBaht(value) : String(value)
-                              }
-                              contentStyle={{
-                                borderRadius: 12,
-                                border: '1px solid #F5E9CF',
-                                fontSize: 12,
-                              }}
-                            />
-                          </PieChart>
-                        </ResponsiveContainer>
-                      </div>
-                      <ul className="mt-2 space-y-1.5">
-                        {expenseTopFive.slice(0, 3).map((c, i) => (
-                          <li
-                            key={c.categoryId}
-                            className="flex items-center justify-between text-xs"
-                          >
-                            <span className="flex items-center gap-1.5">
-                              <span
-                                className="h-2 w-2 rounded-full"
-                                style={{
-                                  backgroundColor:
-                                    PIE_EXPENSE_COLORS[i % PIE_EXPENSE_COLORS.length],
-                                }}
-                              />
-                              <span className="text-zinc-700">{c.name}</span>
-                            </span>
-                            <span className="font-semibold text-rose-600">
-                              {formatBaht(c.totalBaht)}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </>
-                  )}
-                </CardContent>
-              </Card>
-              <Card className={ELEGANT_CARD_CLS}>
-                <CardContent className="pt-5">
-                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-emerald-600">
-                    รายรับ
-                  </h3>
-                  {incomePie.length === 0 ? (
-                    <p className="text-sm text-zinc-400">ยังไม่มีรายรับ</p>
-                  ) : (
-                    <>
-                      <div className="h-44 w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <PieChart>
-                            <Pie
-                              data={incomePie}
-                              dataKey="value"
-                              nameKey="name"
-                              innerRadius={42}
-                              outerRadius={70}
-                              paddingAngle={2}
-                              stroke="#FFF8EE"
-                              strokeWidth={1.5}
-                            >
-                              {incomePie.map((d, i) => (
-                                <Cell key={i} fill={d.fill} />
-                              ))}
-                            </Pie>
-                            <Tooltip
-                              formatter={(value) =>
-                                typeof value === 'number' ? formatBaht(value) : String(value)
-                              }
-                              contentStyle={{
-                                borderRadius: 12,
-                                border: '1px solid #F5E9CF',
-                                fontSize: 12,
-                              }}
-                            />
-                          </PieChart>
-                        </ResponsiveContainer>
-                      </div>
-                      <ul className="mt-2 space-y-1.5">
-                        {incomeTopFive.slice(0, 3).map((c, i) => (
-                          <li
-                            key={c.categoryId}
-                            className="flex items-center justify-between text-xs"
-                          >
-                            <span className="flex items-center gap-1.5">
-                              <span
-                                className="h-2 w-2 rounded-full"
-                                style={{
-                                  backgroundColor:
-                                    PIE_INCOME_COLORS[i % PIE_INCOME_COLORS.length],
-                                }}
-                              />
-                              <span className="text-zinc-700">{c.name}</span>
-                            </span>
-                            <span className="font-semibold text-emerald-600">
-                              {formatBaht(c.totalBaht)}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          )}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Card className={ELEGANT_CARD_CLS}>
+              <CardContent className="py-6 text-center">
+                <p className="text-sm text-zinc-400">กราฟอยู่ระหว่างปรับปรุง</p>
+              </CardContent>
+            </Card>
+            <Card className={ELEGANT_CARD_CLS}>
+              <CardContent className="py-6 text-center">
+                <p className="text-sm text-zinc-400">กราฟอยู่ระหว่างปรับปรุง</p>
+              </CardContent>
+            </Card>
+          </div>
         </Section>
 
         {/* Top 5 expense */}
