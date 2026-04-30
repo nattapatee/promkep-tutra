@@ -43,7 +43,7 @@ await app.register(promptPayRoutes)
 await app.register(debtRoutes)
 await app.register(qrRoutes)
 
-const port = Number(process.env.PORT ?? 3002)
+const port = Number(process.env.PORT ?? 3001)
 const host = '0.0.0.0'
 
 try {

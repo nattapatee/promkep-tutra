@@ -36,7 +36,7 @@ COPY --from=build /app/src/skills ./dist/skills
 COPY api/package.json ./
 
 ENV NODE_ENV=production
-ENV PORT=3002
+ENV PORT=3001
 EXPOSE 3002
 
 ENTRYPOINT ["dumb-init", "--"]

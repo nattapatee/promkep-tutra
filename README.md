@@ -18,7 +18,7 @@ Sibling-stack of [pwt-tx](https://github.com/nattapatee/pwt-manage-transection-b
 ## Layout
 
 ```
-api/      Fastify API + Prisma + LINE webhook + AI secretary (port 3002 dev)
+api/      Fastify API + Prisma + LINE webhook + AI secretary (port 3001 dev)
 web/      Next.js 16 LIFF app — dashboard, transactions, debts, settings (port 3010 dev)
 deploy/   docker-compose, Caddy reverse-proxy notes (joins shared pwt-tx_app network)
 ```
@@ -33,15 +33,15 @@ npm install
 npx prisma generate
 npx prisma migrate dev --name init --skip-seed
 npm run prisma:seed
-PORT=3002 npm run dev
+PORT=3001 npm run dev
 
 # web
 cd web
 npm install
-PORT=3010 npm run dev   # NEXT_PUBLIC_API_URL=http://localhost:3002 in .env.local
+PORT=3010 npm run dev   # NEXT_PUBLIC_API_URL=http://localhost:3001 in .env.local
 ```
 
-Health checks: `curl http://localhost:3002/health` and `curl http://localhost:3010/`.
+Health checks: `curl http://localhost:3001/health` and `curl http://localhost:3010/`.
 
 ## Deploy
 
