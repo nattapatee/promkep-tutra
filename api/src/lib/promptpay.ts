@@ -3,7 +3,7 @@
  * Caller is responsible for storing the PromptPayLink — this file only
  * formats identifiers and produces QR bytes.
  */
-import generatePayload from 'promptpay-qr'
+import { generate } from 'promptparse'
 import QRCode from 'qrcode'
 
 export type PromptPayKind = 'phone' | 'national_id'
@@ -33,15 +33,15 @@ export function normalizePromptPayIdentifier(
 }
 
 /**
- * Format an identifier the way `promptpay-qr` expects.
- * Phone: 0812345678 → 0066812345678 (international form, leading 0 stripped, +66 prepended).
+ * Format an identifier the way `promptparse` expects.
+ * Phone: 0812345678 → 812345678 (leading 0 stripped; library prepends 66).
  * National ID: passed through untouched.
  */
-function formatForQrLib(p: NormalizedPromptPay): string {
+function formatForQrLib(p: NormalizedPromptPay): { type: 'MSISDN' | 'NATID'; target: string } {
   if (p.kind === 'phone') {
-    return `0066${p.identifier.slice(1)}`
+    return { type: 'MSISDN', target: p.identifier.slice(1) }
   }
-  return p.identifier
+  return { type: 'NATID', target: p.identifier }
 }
 
 export interface BuildPromptPayPayloadOpts {
@@ -55,11 +55,12 @@ export function buildPromptPayPayload(
   p: NormalizedPromptPay,
   opts: BuildPromptPayPayloadOpts = {},
 ): string {
-  const target = formatForQrLib(p)
-  if (typeof opts.amountBaht === 'number' && opts.amountBaht > 0) {
-    return generatePayload(target, { amount: opts.amountBaht })
-  }
-  return generatePayload(target, {})
+  const { type, target } = formatForQrLib(p)
+  return generate.anyId({
+    type,
+    target,
+    amount: opts.amountBaht,
+  })
 }
 
 /**

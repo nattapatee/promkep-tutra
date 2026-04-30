@@ -86,10 +86,11 @@ function isTokenExpiredError(error: unknown): boolean {
 }
 
 function RegistrationGuard({ children }: { children: React.ReactNode }) {
-  const { ready, error: authError, authHeaders } = useAuth()
+  const { ready, error: authError, authHeaders, retry } = useAuth()
   const pathname = usePathname()
   const router = useRouter()
   const [isRelogging, setIsRelogging] = React.useState(false)
+  const [reloginTimedOut, setReloginTimedOut] = React.useState(false)
 
   const meQuery = useQuery<ApiUser>({
     queryKey: ['me', authHeaders.lineUserId],
@@ -97,6 +98,27 @@ function RegistrationGuard({ children }: { children: React.ReactNode }) {
     enabled: ready,
     retry: false,
   })
+
+  React.useEffect(() => {
+    const raw = sessionStorage.getItem('liff_relogin_attempt')
+    if (!raw) return
+    const ts = parseInt(raw, 10)
+    if (Date.now() - ts < 10_000) {
+      sessionStorage.removeItem('liff_relogin_attempt')
+      retry()
+    }
+  }, [retry])
+
+  React.useEffect(() => {
+    if (!isRelogging) {
+      setReloginTimedOut(false)
+      return
+    }
+    const timer = setTimeout(() => {
+      setReloginTimedOut(true)
+    }, 5000)
+    return () => clearTimeout(timer)
+  }, [isRelogging])
 
   React.useEffect(() => {
     if (!meQuery.error || isRelogging) return
@@ -136,6 +158,21 @@ function RegistrationGuard({ children }: { children: React.ReactNode }) {
   }
 
   if (isRelogging) {
+    if (reloginTimedOut) {
+      return (
+        <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-rose-100 via-orange-100 to-amber-50 p-6">
+          <div className="rounded-3xl bg-white/80 p-6 shadow-lg backdrop-blur text-center">
+            <p className="mb-3 text-rose-600">ไม่สามารถรีเฟรชเซสชันได้</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="rounded-full bg-gradient-to-br from-rose-400 to-amber-500 px-5 py-2 text-sm font-medium text-white shadow hover:opacity-90"
+            >
+              ลองใหม่
+            </button>
+          </div>
+        </div>
+      )
+    }
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-rose-100 via-orange-100 to-amber-50">
         <div className="flex flex-col items-center gap-4">

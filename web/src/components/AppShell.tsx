@@ -11,6 +11,7 @@ import {
   Plus,
   CreditCard,
   Settings,
+  Users,
 } from 'lucide-react'
 import { useAuth } from '@/app/providers'
 import { api, type ApiUser } from '@/lib/api'
@@ -27,6 +28,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/transactions', label: 'รายการ', icon: ListOrdered },
   { href: '/debts', label: 'หนี้', icon: CreditCard },
+  { href: '/groups', label: 'กลุ่ม', icon: Users },
   { href: '/settings/promptpay', label: 'ตั้งค่า', icon: Settings },
 ]
 
@@ -118,10 +120,9 @@ export function AppShell({ children }: AppShellProps) {
         </motion.main>
       </AnimatePresence>
 
-      {/* Bottom mobile nav: Dashboard / Transactions / FAB(+) / Debts / Settings */}
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-secondary-green/20 bg-primary-white/85 backdrop-blur-xl md:hidden">
-        <div className="mx-auto grid max-w-3xl grid-cols-5 items-end px-2 pb-2 pt-1">
-          {[NAV_ITEMS[0], NAV_ITEMS[1]].map(({ href, label, icon: Icon }) => {
+        <div className="mx-auto grid max-w-3xl grid-cols-6 items-end px-2 pb-2 pt-1">
+          {[NAV_ITEMS[0], NAV_ITEMS[1], NAV_ITEMS[2]].map(({ href, label, icon: Icon }) => {
             const active = isActive(pathname, href)
             return (
               <Link
@@ -149,7 +150,7 @@ export function AppShell({ children }: AppShellProps) {
             </Link>
           </div>
 
-          {[NAV_ITEMS[2], NAV_ITEMS[3]].map(({ href, label, icon: Icon }) => {
+          {[NAV_ITEMS[3], NAV_ITEMS[4]].map(({ href, label, icon: Icon }) => {
             const active = isActive(pathname, href)
             return (
               <Link

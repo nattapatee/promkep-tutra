@@ -41,7 +41,13 @@ export async function reloginLiff(): Promise<void> {
   }
 
   console.log('[LIFF] Calling login() for fresh token')
+  sessionStorage.setItem('liff_relogin_attempt', Date.now().toString())
   liff.login()
+
+  setTimeout(() => {
+    console.log('[LIFF] Login redirect did not happen, forcing reload')
+    window.location.reload()
+  }, 3000)
 }
 
 export async function initLiff(): Promise<LiffSession> {

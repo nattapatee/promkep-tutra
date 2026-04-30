@@ -177,7 +177,7 @@ Transform PromKep-Tutra into a group-based finance tracker with cute mascot bran
   - Debt reminder animation (club swing)
   - Transaction animation (coin drop)
 
-- [ ] 10. Deploy
+- [x] 10. Deploy
 
   **What to do**:
   - Build and test locally

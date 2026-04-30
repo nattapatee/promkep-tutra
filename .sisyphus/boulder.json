@@ -90,6 +90,15 @@
       "agent": "Sisyphus-Junior",
       "category": "visual-engineering",
       "updated_at": "2026-04-30T17:08:25.601Z"
+    },
+    "final-wave:f1": {
+      "task_key": "final-wave:f1",
+      "task_label": "F1",
+      "task_title": "Test group creation and joining",
+      "session_id": "ses_22068b5ecffeQdyeivVHaTKDoI",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-04-30T18:21:14.970Z"
     }
   }
 }
