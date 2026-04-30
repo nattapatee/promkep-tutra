@@ -35,7 +35,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Next.js standalone output bundles only what's needed to run.
 COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static
-COPY --from=build /app/public ./public
 
 ENV NODE_ENV=production
 ENV PORT=3000
