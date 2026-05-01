@@ -33,19 +33,29 @@ export async function reloginLiff(): Promise<void> {
   const liffId = process.env.NEXT_PUBLIC_LIFF_ID
   if (!liffId) return
 
+  // Loop guard: if we've just attempted a relogin and got back here, the
+  // logout+login dance already ran. Force a hard reload instead and let the
+  // user manually retry — better than burning bandwidth in an infinite loop.
+  const attemptKey = 'liff_relogin_attempt'
+  const prior = Number(sessionStorage.getItem(attemptKey) ?? '0')
+  if (prior >= 2) {
+    console.warn('[LIFF] relogin loop detected, aborting')
+    sessionStorage.removeItem(attemptKey)
+    return
+  }
+  sessionStorage.setItem(attemptKey, String(prior + 1))
+
   const liffMod = await import('@line/liff')
   const liff = liffMod.default
 
-  console.log('[LIFF] Token expired, forcing re-login redirect')
-  sessionStorage.removeItem('liff_relogin_attempt')
+  console.log('[LIFF] Token expired, logging out and re-issuing')
   try {
-    if (liff.isLoggedIn()) {
-      liff.login({ redirectUri: window.location.href })
-      return
-    }
+    if (liff.isLoggedIn()) liff.logout()
   } catch (err) {
-    console.warn('[LIFF] login redirect failed, falling back to reload', err)
+    console.warn('[LIFF] logout failed (continuing)', err)
   }
+  // After logout the SDK session is gone; reload so init() sees logged-out
+  // state and triggers a fresh liff.login() redirect → new idToken.
   window.location.reload()
 }
 

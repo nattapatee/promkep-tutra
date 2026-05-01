@@ -86,7 +86,7 @@ function isTokenExpiredError(error: unknown): boolean {
 }
 
 function RegistrationGuard({ children }: { children: React.ReactNode }) {
-  const { ready, error: authError, authHeaders, retry } = useAuth()
+  const { ready, error: authError, authHeaders } = useAuth()
   const pathname = usePathname()
   const router = useRouter()
   const [isReloading, setIsReloading] = React.useState(false)
@@ -99,11 +99,12 @@ function RegistrationGuard({ children }: { children: React.ReactNode }) {
   })
 
   React.useEffect(() => {
-    const raw = sessionStorage.getItem('liff_relogin_attempt')
-    if (!raw) return
-    sessionStorage.removeItem('liff_relogin_attempt')
-    retry()
-  }, [retry])
+    if (meQuery.data) {
+      // Once we've successfully auth'd, clear the relogin loop counter so a
+      // future genuine token expiry can trigger another logout+relogin cycle.
+      sessionStorage.removeItem('liff_relogin_attempt')
+    }
+  }, [meQuery.data])
 
   React.useEffect(() => {
     if (!meQuery.error || isReloading) return
