@@ -60,11 +60,12 @@ export async function debtRoutes(app: FastifyInstance) {
       }
     }
 
+    // When groupId is provided → restrict to that group (already
+    // membership-checked above). When omitted → return ALL debts the caller
+    // is part of (personal + every group), so /debts/page shows everything.
     const where: Record<string, unknown> = {}
     if (groupId) {
       where.groupId = groupId
-    } else {
-      where.groupId = null
     }
     if (role === 'creditor') {
       where.creditorId = caller.userId

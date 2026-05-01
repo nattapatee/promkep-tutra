@@ -17,7 +17,7 @@ import {
 import { askSecretary, getLastSecretaryError } from '@/lib/bot/secretary'
 import { clearForUser as clearChatMemory } from '@/lib/bot/chat-memory'
 import { linkUserToRichMenu, readRichMenuIds } from '@/lib/line-richmenu'
-import { handleDebtCreate, handleDebtAction } from '@/lib/bot/debt-flow'
+import { handleDebtCreate, handleDebtAction, handleDebtPayQr } from '@/lib/bot/debt-flow'
 import { handlePromptPayRequest } from '@/lib/bot/promptpay-flow'
 
 const SECRETARY_MAX_INPUT_LEN = 500
@@ -478,6 +478,12 @@ export async function handleTextMessage(
 
   if (text === 'หนี้' || text.startsWith('หนี้ ')) {
     await handleDebtCreate(event, lineUserId, log)
+    return
+  }
+
+  const debtPayMatch = text.match(/^\/debt-pay\s+(\S+)$/)
+  if (debtPayMatch) {
+    await handleDebtPayQr(event, lineUserId, debtPayMatch[1], log)
     return
   }
 

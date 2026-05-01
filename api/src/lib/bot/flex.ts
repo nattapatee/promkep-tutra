@@ -360,7 +360,7 @@ export function buildDebtRequestBubbleForDebtor(input: DebtFlexInput): FlexMessa
           type: 'button',
           style: 'primary',
           color: NET_POSITIVE,
-          action: { type: 'message', label: 'ชำระแล้ว', text: `/debt-paid ${input.debt.id}` },
+          action: { type: 'message', label: 'จ่ายเงิน', text: `/debt-pay ${input.debt.id}` },
         },
         {
           type: 'button',
@@ -371,7 +371,7 @@ export function buildDebtRequestBubbleForDebtor(input: DebtFlexInput): FlexMessa
           type: 'button',
           style: 'link',
           color: NET_NEGATIVE,
-          action: { type: 'message', label: 'ปฏิเสธ', text: `/debt-reject ${input.debt.id}` },
+          action: { type: 'message', label: 'ลบ / ปฏิเสธ', text: `/debt-reject ${input.debt.id}` },
         },
       ],
     },
@@ -380,6 +380,81 @@ export function buildDebtRequestBubbleForDebtor(input: DebtFlexInput): FlexMessa
     type: 'flex',
     altText: `${input.creditor.displayName} ขอเก็บเงิน ${THB.format(amountBaht)}`,
     contents: bubble,
+  }
+}
+
+interface DebtPayQrInput {
+  debtId: string
+  amountBaht: number
+  qrImageUrl: string
+  creditorDisplayName: string
+  identifierMasked: string
+}
+
+/**
+ * Bubble shown to the debtor after they tap "จ่ายเงิน". Contains the
+ * creditor's PromptPay QR with the debt amount baked in, plus a
+ * "ชำระแล้ว" button that fires `/debt-paid <id>` to mark the debt paid
+ * and notify the creditor.
+ */
+export function buildDebtPayQrBubble(input: DebtPayQrInput): FlexMessage {
+  return {
+    type: 'flex',
+    altText: `จ่าย ${THB.format(input.amountBaht)} ให้ ${input.creditorDisplayName}`,
+    contents: {
+      type: 'bubble',
+      size: 'kilo',
+      header: headerBox('💳 จ่ายเงินให้เจ้าหนี้'),
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        backgroundColor: '#FAF6EC',
+        spacing: 'md',
+        contents: [
+          { type: 'text', text: input.creditorDisplayName, size: 'sm', color: '#475569' },
+          {
+            type: 'image',
+            url: input.qrImageUrl,
+            size: 'full',
+            aspectRatio: '1:1',
+            aspectMode: 'fit',
+            backgroundColor: '#FFFFFF',
+          },
+          {
+            type: 'text',
+            text: THB.format(input.amountBaht),
+            size: 'xl',
+            weight: 'bold',
+            align: 'center',
+            color: '#0f172a',
+          },
+          {
+            type: 'text',
+            text: input.identifierMasked,
+            size: 'xs',
+            color: '#94a3b8',
+            align: 'center',
+          },
+        ],
+      },
+      footer: {
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'sm',
+        contents: [
+          {
+            type: 'button',
+            style: 'primary',
+            color: NET_POSITIVE,
+            action: {
+              type: 'message',
+              label: 'ชำระแล้ว',
+              text: `/debt-paid ${input.debtId}`,
+            },
+          },
+        ],
+      },
+    },
   }
 }
 

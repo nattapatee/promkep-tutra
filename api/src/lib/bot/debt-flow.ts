@@ -1,8 +1,9 @@
 import type { messagingApi, webhook } from '@line/bot-sdk'
 import { prisma } from '@/lib/prisma'
 import { lineClient } from '@/lib/line'
-import { buildDebtRequestBubbleForDebtor } from '@/lib/bot/flex'
+import { buildDebtPayQrBubble, buildDebtRequestBubbleForDebtor } from '@/lib/bot/flex'
 import { askSecretary } from '@/lib/bot/secretary'
+import { maskIdentifier, type PromptPayKind } from '@/lib/promptpay'
 
 type TextMessageEvent = webhook.MessageEvent & { message: webhook.TextMessageContent }
 
@@ -131,6 +132,113 @@ export async function handleDebtCreate(
   await safeReply(
     event.replyToken!,
     [textMsg(`ส่งคำขอเก็บเงิน ${THB.format(parsed.amountBaht)} ไปที่ @${parsed.memberName} แล้วครับ`)],
+    log,
+  )
+}
+
+function getPublicApiUrl(log?: BotLogger): string | null {
+  const direct = (process.env.PUBLIC_API_URL ?? '').trim()
+  if (direct.startsWith('https://') || direct.startsWith('http://')) {
+    return direct.replace(/\/$/, '')
+  }
+  const domain = (process.env.DOMAIN_API ?? '').trim()
+  if (domain) {
+    return `https://${domain.replace(/^https?:\/\//, '').replace(/\/$/, '')}`
+  }
+  const web = (process.env.WEB_BASE_URL ?? '').trim()
+  if (web && /-web\./.test(web)) {
+    return web.replace(/-web\./, '-api.').replace(/\/$/, '')
+  }
+  log?.warn({}, 'debt.pay.qr.url.missing')
+  return null
+}
+
+/**
+ * Handle /debt-pay <id>: debtor wants to pay this debt.
+ * Looks up creditor's PromptPay link, pushes a QR bubble with a
+ * "ชำระแล้ว" button that fires /debt-paid <id>.
+ */
+export async function handleDebtPayQr(
+  event: TextMessageEvent,
+  lineUserId: string,
+  debtId: string,
+  log: BotLogger,
+): Promise<void> {
+  const debtor = await prisma.user.findUnique({ where: { lineUserId } })
+  if (!debtor) {
+    log.warn({ lineUserId }, 'debt.pay.debtor.not_found')
+    return
+  }
+
+  const debt = await prisma.debtRequest.findUnique({
+    where: { id: debtId },
+    include: {
+      creditor: { include: { promptPayLink: true } },
+    },
+  })
+
+  if (!debt) {
+    await safeReply(event.replyToken!, [textMsg('ไม่พบรายการหนี้ครับ')], log)
+    return
+  }
+  if (debt.debtorId !== debtor.id) {
+    await safeReply(event.replyToken!, [textMsg('คุณไม่ใช่ลูกหนี้ในรายการนี้ครับ')], log)
+    return
+  }
+  if (debt.status !== 'pending') {
+    await safeReply(
+      event.replyToken!,
+      [textMsg(`รายการนี้ถูกอัพเดทไปแล้ว (${debt.status}) ครับ`)],
+      log,
+    )
+    return
+  }
+
+  const link = debt.creditor.promptPayLink
+  if (!link) {
+    await safeReply(
+      event.replyToken!,
+      [
+        textMsg(
+          `${debt.creditor.displayName} ยังไม่ได้ผูก PromptPay ครับ ลองติดต่อตรงๆ หรือใช้ "ชำระแล้ว" ผ่านเว็บแอป`,
+        ),
+      ],
+      log,
+    )
+    return
+  }
+
+  const base = getPublicApiUrl(log)
+  if (!base) {
+    await safeReply(
+      event.replyToken!,
+      [textMsg('ระบบยังตั้งค่าไม่ครบ ตุ๊ต๊ะส่ง QR ให้ไม่ได้ตอนนี้ครับ')],
+      log,
+    )
+    return
+  }
+
+  const amountSatang = debt.amount
+  const amountBaht = amountSatang / SATANG_PER_BAHT
+  const qrUrl = `${base}/qr.png?u=${encodeURIComponent(debt.creditor.id)}&amount=${amountSatang}`
+  const identifierMasked = maskIdentifier({
+    identifier: link.identifier,
+    kind: link.kind as PromptPayKind,
+  })
+
+  log.info({ debtId, qrUrl }, 'debt.pay.qr')
+
+  await safeReply(
+    event.replyToken!,
+    [
+      buildDebtPayQrBubble({
+        debtId,
+        amountBaht,
+        qrImageUrl: qrUrl,
+        creditorDisplayName: link.displayName ?? debt.creditor.displayName,
+        identifierMasked,
+      }),
+    ],
     log,
   )
 }
