@@ -30,8 +30,13 @@ export function nowBangkokIsoLocal(): string {
   return `${yyyy}-${mm}-${dd}T${HH}:${MM}`
 }
 
+/**
+ * Parse a Bangkok-local datetime string and return its UTC ISO equivalent.
+ * Accepts both `YYYY-MM-DDTHH:MM` (datetime-local input) and `YYYY-MM-DD`
+ * (date input — defaults time to 00:00).
+ */
 export function bangkokLocalToIsoUtc(local: string): string {
-  const [date, time] = local.split('T')
+  const [date, time = '00:00'] = local.split('T')
   const [y, mo, d] = date.split('-').map(Number)
   const [h, mi] = time.split(':').map(Number)
   const bkkAsUtcMs = Date.UTC(y, mo - 1, d, h, mi)
