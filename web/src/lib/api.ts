@@ -68,6 +68,19 @@ export interface MonthlyReport {
   }>
 }
 
+export type PaymentRequestStatus = 'pending' | 'paid' | 'expired' | 'cancelled'
+
+export interface ApiPaymentRequest {
+  id: string
+  amountBaht: number
+  note: string | null
+  status: PaymentRequestStatus
+  expiresAt: string
+  paidAt: string | null
+  createdAt: string
+  remainingMs: number
+}
+
 export interface ApiPromptPayLink {
   id: string
   identifier: string
@@ -418,6 +431,58 @@ export const api = {
       if (!r.ok) throw new Error(`api error ${r.status}`)
       return r.blob()
     }),
+
+  parsePromptPay: (payload: string) =>
+    fetch(`${API_BASE}/promptpay/parse`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ payload }),
+    }).then((r) =>
+      handle<{ identifier: string; kind: 'phone' | 'national_id'; amountBaht: number | null }>(r),
+    ),
+
+  createPaymentRequest: (
+    auth: AuthHeaders,
+    body: { amountBaht: number; expiresInMinutes: number; note?: string },
+  ) =>
+    fetch(`${API_BASE}/me/promptpay/request`, {
+      method: 'POST',
+      headers: buildHeaders(auth, true),
+      body: JSON.stringify(body),
+    }).then((r) => handle<ApiPaymentRequest>(r)),
+
+  getPaymentRequest: (auth: AuthHeaders, id: string) =>
+    fetch(`${API_BASE}/me/promptpay/request/${id}`, {
+      headers: buildHeaders(auth),
+    }).then((r) => handle<ApiPaymentRequest>(r)),
+
+  getPaymentRequestQrUrl: (auth: AuthHeaders, id: string) => {
+    const qs = new URLSearchParams()
+    if (auth.lineUserId) qs.set('uid', auth.lineUserId)
+    return `${API_BASE}/me/promptpay/request/${id}/qr${qs.toString() ? `?${qs}` : ''}`
+  },
+
+  fetchPaymentRequestQr: (auth: AuthHeaders, id: string) =>
+    fetch(`${API_BASE}/me/promptpay/request/${id}/qr`, {
+      headers: buildHeaders(auth),
+    }).then((r) => {
+      if (!r.ok) throw new Error(`api error ${r.status}`)
+      return r.blob()
+    }),
+
+  confirmPaymentRequest: (auth: AuthHeaders, id: string) =>
+    fetch(`${API_BASE}/me/promptpay/request/${id}/confirm`, {
+      method: 'POST',
+      headers: buildHeaders(auth, true),
+      body: '{}',
+    }).then((r) => handle<ApiPaymentRequest>(r)),
+
+  cancelPaymentRequest: (auth: AuthHeaders, id: string) =>
+    fetch(`${API_BASE}/me/promptpay/request/${id}/cancel`, {
+      method: 'POST',
+      headers: buildHeaders(auth, true),
+      body: '{}',
+    }).then((r) => handle<ApiPaymentRequest>(r)),
 
   chatWithSecretary: (auth: AuthHeaders, message: string) =>
     fetch(`${API_BASE}/chat`, {

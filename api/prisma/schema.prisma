@@ -27,6 +27,7 @@ model User {
   debtorDebts    DebtRequest[]   @relation("DebtorDebts")
   createdGroups  Group[]         @relation("CreatedGroups")
   groupMemberships GroupMember[] @relation("GroupMemberships")
+  paymentRequests  PaymentRequest[]
 }
 
 /// Conversation turn for the AI secretary ("น้องเก็บ"). Auto-pruned by ttl.
@@ -102,6 +103,25 @@ model PromptPayLink {
   displayName String?  // human label e.g. "Personal mobile"
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+/// Time-bounded request to receive a single PromptPay payment.
+/// Status flow: pending → paid | expired | cancelled. Verification is manual
+/// (user confirms via UI) since there is no bank API.
+model PaymentRequest {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount    Int       // satang
+  note      String?
+  status    String    @default("pending")
+  expiresAt DateTime
+  paidAt    DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([userId, status])
+  @@index([expiresAt])
 }
 
 /// IOU between two registered users. Status flow:

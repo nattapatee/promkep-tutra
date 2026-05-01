@@ -66,11 +66,15 @@ export default function ChatPage() {
       }
       setMessages((prev) => [...prev, modelMsg])
     },
-    onError: () => {
+    onError: (err: unknown) => {
+      const detail = err instanceof Error ? err.message : ''
+      const reasonMatch = detail.match(/"reason":"([^"]+)"/)
+      const reason = reasonMatch ? reasonMatch[1] : null
+      const baseText = 'ขอโทษนะ ตุ๊ต๊ะพึ่งพักไปกินข้าว ลองใหม่ในอีกสักครู่น้า 🍚'
       const errorMsg: ChatMessage = {
         id: `m-${Date.now()}`,
         role: 'model',
-        text: 'ขอโทษนะ ตุ๊ต๊ะพึ่งพักไปกินข้าว ลองใหม่ในอีกสักครู่น้า 🍚',
+        text: reason ? `${baseText}\n(reason: ${reason})` : baseText,
         timestamp: Date.now(),
       }
       setMessages((prev) => [...prev, errorMsg])

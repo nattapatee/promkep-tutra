@@ -6,9 +6,20 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Loader2, QrCode, Trash2, ArrowLeftRight, Download, X } from 'lucide-react'
+import {
+  Loader2,
+  QrCode,
+  Trash2,
+  ArrowLeftRight,
+  Download,
+  X,
+  ClipboardPaste,
+  ShieldCheck,
+  CheckCircle2,
+  Clock,
+} from 'lucide-react'
 import { useAuth } from '@/app/providers'
-import { api, type ApiPromptPayLink } from '@/lib/api'
+import { api, type ApiPaymentRequest, type ApiPromptPayLink } from '@/lib/api'
 import { cn } from '@/lib/cn'
 
 const schema = z
@@ -37,7 +48,10 @@ const schema = z
 
 type FormValues = z.infer<typeof schema>
 
-type Tab = 'receive' | 'pay' | 'edit'
+type Tab = 'receive' | 'pay' | 'verify' | 'edit'
+
+const VERIFY_POLL_INTERVAL_MS = 4000
+const VERIFY_TTL_OPTIONS = [5, 10, 15, 30] as const
 
 export default function PromptPaySettingsPage() {
   const { ready, error, authHeaders, retry } = useAuth()
@@ -48,6 +62,17 @@ export default function PromptPaySettingsPage() {
   const [payIdentifier, setPayIdentifier] = React.useState('')
   const [payKind, setPayKind] = React.useState<'phone' | 'national_id'>('phone')
   const [payAmount, setPayAmount] = React.useState('')
+  const [payPaste, setPayPaste] = React.useState('')
+  const [payPasteError, setPayPasteError] = React.useState<string | null>(null)
+  const [payPasteLoading, setPayPasteLoading] = React.useState(false)
+  const [verifyAmount, setVerifyAmount] = React.useState('')
+  const [verifyTtlMin, setVerifyTtlMin] = React.useState<number>(VERIFY_TTL_OPTIONS[1])
+  const [verifyNote, setVerifyNote] = React.useState('')
+  const [verifyRequest, setVerifyRequest] = React.useState<ApiPaymentRequest | null>(null)
+  const [verifyQrUrl, setVerifyQrUrl] = React.useState<string | null>(null)
+  const [verifyLoading, setVerifyLoading] = React.useState(false)
+  const [verifyError, setVerifyError] = React.useState<string | null>(null)
+  const [verifyCountdownMs, setVerifyCountdownMs] = React.useState<number>(0)
   const [qrUrl, setQrUrl] = React.useState<string | null>(null)
   const [qrLoading, setQrLoading] = React.useState(false)
 
@@ -114,6 +139,29 @@ export default function PromptPaySettingsPage() {
     }
   }
 
+  async function applyPastedPayload() {
+    setPayPasteError(null)
+    const trimmed = payPaste.trim()
+    if (!trimmed) {
+      setPayPasteError('วาง PromptPay payload ก่อน')
+      return
+    }
+    setPayPasteLoading(true)
+    try {
+      const result = await api.parsePromptPay(trimmed)
+      setPayKind(result.kind)
+      setPayIdentifier(result.identifier)
+      if (result.amountBaht && result.amountBaht > 0) {
+        setPayAmount(String(result.amountBaht))
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'parse failed'
+      setPayPasteError(`อ่าน QR ไม่สำเร็จ: ${msg}`)
+    } finally {
+      setPayPasteLoading(false)
+    }
+  }
+
   async function generatePayQr() {
     const digits = payIdentifier.replace(/\D/g, '')
     if (payKind === 'phone' && digits.length !== 10) {
@@ -153,6 +201,98 @@ export default function PromptPaySettingsPage() {
       if (qrUrl) URL.revokeObjectURL(qrUrl)
     }
   }, [qrUrl])
+
+  React.useEffect(() => {
+    return () => {
+      if (verifyQrUrl) URL.revokeObjectURL(verifyQrUrl)
+    }
+  }, [verifyQrUrl])
+
+  // Poll the active payment request until terminal status.
+  React.useEffect(() => {
+    if (!verifyRequest || verifyRequest.status !== 'pending') return
+    let cancelled = false
+    const poll = async () => {
+      try {
+        const fresh = await api.getPaymentRequest(authHeaders, verifyRequest.id)
+        if (cancelled) return
+        setVerifyRequest(fresh)
+        setVerifyCountdownMs(fresh.remainingMs)
+      } catch (err) {
+        console.warn('[verify] poll failed', err)
+      }
+    }
+    const interval = window.setInterval(poll, VERIFY_POLL_INTERVAL_MS)
+    return () => {
+      cancelled = true
+      window.clearInterval(interval)
+    }
+  }, [verifyRequest, authHeaders])
+
+  // 1-second countdown ticker (separate from server poll).
+  React.useEffect(() => {
+    if (!verifyRequest || verifyRequest.status !== 'pending') return
+    const tick = () => {
+      const remaining = new Date(verifyRequest.expiresAt).getTime() - Date.now()
+      setVerifyCountdownMs(Math.max(0, remaining))
+    }
+    tick()
+    const t = window.setInterval(tick, 1000)
+    return () => window.clearInterval(t)
+  }, [verifyRequest])
+
+  async function startVerifyRequest() {
+    setVerifyError(null)
+    const amount = parseFloat(verifyAmount)
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setVerifyError('กรอกจำนวนเงินที่ถูกต้อง')
+      return
+    }
+    setVerifyLoading(true)
+    try {
+      const created = await api.createPaymentRequest(authHeaders, {
+        amountBaht: amount,
+        expiresInMinutes: verifyTtlMin,
+        note: verifyNote.trim() ? verifyNote.trim() : undefined,
+      })
+      setVerifyRequest(created)
+      setVerifyCountdownMs(created.remainingMs)
+      const blob = await api.fetchPaymentRequestQr(authHeaders, created.id)
+      setVerifyQrUrl(URL.createObjectURL(blob))
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'create failed'
+      setVerifyError(`สร้างคำขอไม่สำเร็จ: ${msg}`)
+    } finally {
+      setVerifyLoading(false)
+    }
+  }
+
+  async function confirmVerifyPaid() {
+    if (!verifyRequest) return
+    try {
+      const updated = await api.confirmPaymentRequest(authHeaders, verifyRequest.id)
+      setVerifyRequest(updated)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'confirm failed'
+      setVerifyError(msg)
+    }
+  }
+
+  async function cancelVerifyRequest() {
+    if (!verifyRequest) return
+    try {
+      await api.cancelPaymentRequest(authHeaders, verifyRequest.id)
+    } catch {}
+    resetVerify()
+  }
+
+  function resetVerify() {
+    if (verifyQrUrl) URL.revokeObjectURL(verifyQrUrl)
+    setVerifyQrUrl(null)
+    setVerifyRequest(null)
+    setVerifyCountdownMs(0)
+    setVerifyError(null)
+  }
 
   if (error) {
     return (
@@ -264,10 +404,11 @@ export default function PromptPaySettingsPage() {
         <p className="mt-1 text-sm text-zinc-500">{current.displayName || (current.kind === 'phone' ? 'เบอร์โทร' : 'บัตรปชช.')}: {current.identifier}</p>
       </motion.div>
 
-      <div className="grid grid-cols-3 gap-1.5 rounded-full bg-rose-100 p-1.5">
+      <div className="grid grid-cols-4 gap-1.5 rounded-full bg-rose-100 p-1.5">
         {[
-          { value: 'receive' as Tab, label: 'รับเงิน', icon: QrCode },
-          { value: 'pay' as Tab, label: 'จ่ายเงิน', icon: ArrowLeftRight },
+          { value: 'receive' as Tab, label: 'รับ', icon: QrCode },
+          { value: 'pay' as Tab, label: 'จ่าย', icon: ArrowLeftRight },
+          { value: 'verify' as Tab, label: 'ตรวจ', icon: ShieldCheck },
           { value: 'edit' as Tab, label: 'แก้ไข', icon: Trash2 },
         ].map((t) => {
           const selected = tab === t.value
@@ -346,6 +487,31 @@ export default function PromptPaySettingsPage() {
             className="space-y-4"
           >
             <div className="rounded-3xl border border-rose-100/60 bg-white p-5 shadow-[0_4px_20px_rgba(251,113,133,0.10)]">
+              <p className="mb-3 text-sm font-semibold text-zinc-700">วาง PromptPay payload (ถ้ามี)</p>
+              <textarea
+                value={payPaste}
+                onChange={(e) => setPayPaste(e.target.value)}
+                placeholder="00020101021129370016A000000677010111..."
+                rows={2}
+                className="mb-2 w-full resize-none rounded-2xl border border-rose-100 bg-white px-4 py-3 font-mono text-xs shadow-sm focus:outline-none focus:ring-2 focus:ring-rose-300"
+              />
+              {payPasteError && (
+                <p className="mb-2 text-xs font-semibold text-rose-600">{payPasteError}</p>
+              )}
+              <button
+                type="button"
+                onClick={applyPastedPayload}
+                disabled={payPasteLoading || !payPaste.trim()}
+                className="mb-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 py-2.5 text-xs font-bold text-rose-700 shadow-sm disabled:opacity-60"
+              >
+                {payPasteLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <ClipboardPaste className="h-4 w-4" />
+                )}
+                อ่าน QR แล้วเติมข้อมูล
+              </button>
+
               <p className="mb-3 text-sm font-semibold text-zinc-700">สร้าง QR จ่ายเงิน</p>
               <div className="mb-3 grid grid-cols-2 gap-2 rounded-full bg-rose-100 p-1.5">
                 {(['phone', 'national_id'] as const).map((opt) => (
@@ -387,6 +553,148 @@ export default function PromptPaySettingsPage() {
                 {qrLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'สร้าง QR จ่ายเงิน'}
               </button>
             </div>
+          </motion.div>
+        )}
+
+        {tab === 'verify' && (
+          <motion.div
+            key="verify"
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            className="space-y-4"
+          >
+            {!verifyRequest ? (
+              <div className="rounded-3xl border border-rose-100/60 bg-white p-5 shadow-[0_4px_20px_rgba(251,113,133,0.10)]">
+                <p className="mb-1 text-sm font-semibold text-zinc-700">ขอรับเงินพร้อมตรวจสอบ</p>
+                <p className="mb-4 text-xs text-zinc-500">
+                  สร้าง QR ด้วยจำนวนเงินที่กำหนด ระบบจะตรวจสอบสถานะให้ทุก {VERIFY_POLL_INTERVAL_MS / 1000} วินาที
+                </p>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  placeholder="จำนวนเงิน (บาท)"
+                  value={verifyAmount}
+                  onChange={(e) => setVerifyAmount(e.target.value)}
+                  className="mb-3 w-full rounded-2xl border border-rose-100 bg-white px-4 py-3 text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-rose-300"
+                />
+                <p className="mb-2 text-xs font-semibold text-zinc-600">หมดอายุภายใน</p>
+                <div className="mb-3 grid grid-cols-4 gap-2">
+                  {VERIFY_TTL_OPTIONS.map((opt) => (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => setVerifyTtlMin(opt)}
+                      className={cn(
+                        'rounded-2xl border py-2 text-xs font-bold transition-all',
+                        verifyTtlMin === opt
+                          ? 'border-rose-400 bg-gradient-to-r from-rose-400 to-amber-500 text-white shadow-md'
+                          : 'border-rose-100 bg-white text-rose-700',
+                      )}
+                    >
+                      {opt} นาที
+                    </button>
+                  ))}
+                </div>
+                <input
+                  type="text"
+                  maxLength={120}
+                  placeholder="โน้ต (ไม่บังคับ) เช่น ค่ากาแฟ"
+                  value={verifyNote}
+                  onChange={(e) => setVerifyNote(e.target.value)}
+                  className="mb-3 w-full rounded-2xl border border-rose-100 bg-white px-4 py-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-rose-300"
+                />
+                {verifyError && (
+                  <p className="mb-2 text-xs font-semibold text-rose-600">{verifyError}</p>
+                )}
+                <button
+                  type="button"
+                  onClick={startVerifyRequest}
+                  disabled={verifyLoading || !verifyAmount}
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-rose-400 to-amber-500 py-3 text-sm font-bold text-white shadow-md disabled:opacity-60"
+                >
+                  {verifyLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                  สร้าง QR + ตรวจสอบ
+                </button>
+              </div>
+            ) : (
+              <div className="rounded-3xl border border-rose-100/60 bg-white p-5 shadow-[0_4px_20px_rgba(251,113,133,0.10)]">
+                <div className="mb-3 flex items-center justify-between">
+                  <p className="text-sm font-semibold text-zinc-700">
+                    รอรับ {verifyRequest.amountBaht.toLocaleString('th-TH', { minimumFractionDigits: 2 })} บาท
+                  </p>
+                  <span
+                    className={cn(
+                      'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold',
+                      verifyRequest.status === 'pending' && 'bg-amber-100 text-amber-700',
+                      verifyRequest.status === 'paid' && 'bg-emerald-100 text-emerald-700',
+                      verifyRequest.status === 'expired' && 'bg-zinc-100 text-zinc-600',
+                      verifyRequest.status === 'cancelled' && 'bg-zinc-100 text-zinc-600',
+                    )}
+                  >
+                    {verifyRequest.status === 'pending' && <><Loader2 className="h-3 w-3 animate-spin" /> รอชำระ</>}
+                    {verifyRequest.status === 'paid' && <><CheckCircle2 className="h-3 w-3" /> ชำระแล้ว</>}
+                    {verifyRequest.status === 'expired' && <><Clock className="h-3 w-3" /> หมดอายุ</>}
+                    {verifyRequest.status === 'cancelled' && <><X className="h-3 w-3" /> ยกเลิก</>}
+                  </span>
+                </div>
+
+                {verifyRequest.note && (
+                  <p className="mb-3 text-xs text-zinc-500">โน้ต: {verifyRequest.note}</p>
+                )}
+
+                {verifyQrUrl && verifyRequest.status === 'pending' && (
+                  <div className="mb-3 mx-auto w-full max-w-[260px] rounded-2xl border-4 border-secondary-green/20 bg-white p-3 shadow-md">
+                    <img src={verifyQrUrl} alt="PromptPay QR" className="w-full rounded-xl" />
+                  </div>
+                )}
+
+                {verifyRequest.status === 'pending' && (
+                  <div className="mb-3 flex items-center justify-center gap-2 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
+                    <Clock className="h-4 w-4" />
+                    เหลือเวลา {Math.ceil(verifyCountdownMs / 1000)} วินาที
+                  </div>
+                )}
+
+                {verifyRequest.status === 'paid' && (
+                  <div className="mb-3 flex items-center justify-center gap-2 rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
+                    <CheckCircle2 className="h-4 w-4" />
+                    ได้รับเงินแล้ว
+                  </div>
+                )}
+
+                {verifyError && (
+                  <p className="mb-2 text-xs font-semibold text-rose-600">{verifyError}</p>
+                )}
+
+                {verifyRequest.status === 'pending' ? (
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={cancelVerifyRequest}
+                      className="flex-1 rounded-2xl border border-rose-200 bg-white py-3 text-sm font-bold text-rose-600"
+                    >
+                      ยกเลิก
+                    </button>
+                    <button
+                      type="button"
+                      onClick={confirmVerifyPaid}
+                      className="flex-1 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-400 py-3 text-sm font-bold text-white shadow-md"
+                    >
+                      ฉันได้รับเงินแล้ว
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={resetVerify}
+                    className="w-full rounded-2xl bg-gradient-to-r from-rose-400 to-amber-500 py-3 text-sm font-bold text-white shadow-md"
+                  >
+                    สร้างคำขอใหม่
+                  </button>
+                )}
+              </div>
+            )}
           </motion.div>
         )}
 

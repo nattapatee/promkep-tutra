@@ -14,6 +14,7 @@ export interface LiffSession {
 
 const DEV_LINE_USER_ID = process.env.NEXT_PUBLIC_DEV_LINE_USER_ID ?? 'U-dev-001'
 const DEV_DISPLAY_NAME = 'Dev User'
+const LIFF_INIT_TIMEOUT_MS = 30_000
 
 function isInLineApp(): boolean {
   if (typeof navigator === 'undefined') return false
@@ -35,11 +36,16 @@ export async function reloginLiff(): Promise<void> {
   const liffMod = await import('@line/liff')
   const liff = liffMod.default
 
-  console.log('[LIFF] Token expired, reloading')
-  try {
-    if (liff.isLoggedIn()) liff.logout()
-  } catch {}
+  console.log('[LIFF] Token expired, forcing re-login redirect')
   sessionStorage.removeItem('liff_relogin_attempt')
+  try {
+    if (liff.isLoggedIn()) {
+      liff.login({ redirectUri: window.location.href })
+      return
+    }
+  } catch (err) {
+    console.warn('[LIFF] login redirect failed, falling back to reload', err)
+  }
   window.location.reload()
 }
 
@@ -66,22 +72,36 @@ export async function initLiff(): Promise<LiffSession> {
   console.log('[LIFF] User-Agent:', typeof navigator !== 'undefined' ? navigator.userAgent : 'none')
   console.log('[LIFF] In LINE app:', isInLineApp())
 
+  const liffMod = await import('@line/liff')
+  const liff = liffMod.default
+  console.log('[LIFF] SDK loaded')
+
   try {
-    const liffMod = await import('@line/liff')
-    const liff = liffMod.default
-    console.log('[LIFF] SDK loaded')
-
-    await timeout(10000, liff.init({ liffId }))
-    console.log('[LIFF] Init success, loggedIn:', liff.isLoggedIn())
-
-    if (!liff.isLoggedIn()) {
-      console.log('[LIFF] Not logged in, calling login()')
-      liff.login()
-      throw new Error('LIFF: redirecting to login')
+    await timeout(LIFF_INIT_TIMEOUT_MS, liff.init({ liffId }))
+  } catch (err) {
+    console.error('[LIFF] init timed out or failed:', err)
+    if (!isInLineApp()) {
+      throw new Error('กรุณาเปิดผ่านแอป LINE')
     }
+    // In-app: skip the broken state by forcing a fresh login redirect
+    // instead of bubbling up a timeout that blocks the UI.
+    try {
+      liff.login({ redirectUri: window.location.href })
+    } catch {}
+    throw new Error('LIFF: redirecting to login')
+  }
 
+  console.log('[LIFF] Init success, loggedIn:', liff.isLoggedIn())
+
+  if (!liff.isLoggedIn()) {
+    console.log('[LIFF] Not logged in, calling login()')
+    liff.login({ redirectUri: window.location.href })
+    throw new Error('LIFF: redirecting to login')
+  }
+
+  try {
     const idToken = liff.getIDToken() ?? undefined
-    const profile = await liff.getProfile()
+    const profile = await timeout(LIFF_INIT_TIMEOUT_MS, liff.getProfile())
     console.log('[LIFF] Got profile:', profile.userId)
 
     return {
@@ -98,7 +118,7 @@ export async function initLiff(): Promise<LiffSession> {
       },
     }
   } catch (err) {
-    console.error('[LIFF] Init failed:', err)
+    console.error('[LIFF] getProfile failed:', err)
     if (!isInLineApp()) {
       throw new Error('กรุณาเปิดผ่านแอป LINE')
     }

@@ -271,17 +271,26 @@ export async function askSecretary(
 
     if ('error' in result) {
       log?.warn({ err: result.error }, 'secretary.gemini.error')
+      lastSecretaryError = result.error
       return null
     }
 
     await appendModelMessage(userId, result.text).catch((err) => {
       log?.warn({ err }, 'chat.memory.append.model.failed')
     })
+    lastSecretaryError = null
     return result.text
   } catch (err) {
     log?.warn({ err }, 'secretary.unexpected')
+    lastSecretaryError = err instanceof Error ? err.message : 'unexpected'
     return null
   }
+}
+
+let lastSecretaryError: string | null = null
+
+export function getLastSecretaryError(): string | null {
+  return lastSecretaryError
 }
 
 /**
