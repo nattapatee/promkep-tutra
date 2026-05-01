@@ -306,14 +306,16 @@ export async function handleDebtAction(
   }
   await safeReply(event.replyToken!, [textMsg(debtorConfirmMap[action])], log)
 
-  // Push AI-generated confirmation to creditor
+  // Push confirmation to creditor — AI-generated when possible,
+  // deterministic fallback so the creditor always sees the update.
   try {
     const THB = new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB' })
     const amountBaht = debt.amount / SATANG_PER_BAHT
     const actionLabel = action === 'paid' ? 'ชำระเงิน' : action === 'reject' ? 'ปฏิเสธ' : 'เลื่อนการชำระ'
+    const fallback = `${debt.debtor.displayName} ${actionLabel}หนี้ ${THB.format(amountBaht)} แล้วครับ`
     const prompt = `สร้างข้อความสั้นๆ แจ้งให้เจ้าหนี้รู้ว่า ${debt.debtor.displayName} ${actionLabel}หนี้ ${THB.format(amountBaht)} แล้ว ใช้ภาษาไทยสุภาพ ไม่เกิน 2 ประโยค`
     const aiText = await askSecretary(debt.creditor.id, prompt, log)
-    if (aiText) await safePush(debt.creditor.lineUserId, [textMsg(aiText)], log)
+    await safePush(debt.creditor.lineUserId, [textMsg(aiText ?? fallback)], log)
   } catch (err) {
     log.warn({ err, debtId }, 'debt.action.creditor.notify.failed')
   }

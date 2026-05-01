@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { getCaller, AuthError, type CallerIdentity } from '@/lib/auth'
 import { lineClient } from '@/lib/line'
 import { buildDebtRequestBubbleForDebtor } from '@/lib/bot/flex'
+import { askSecretary } from '@/lib/bot/secretary'
 
 const SATANG_PER_BAHT = 100
 
@@ -207,7 +208,37 @@ export async function debtRoutes(app: FastifyInstance) {
     const updated = await prisma.debtRequest.update({
       where: { id: debt.id },
       data: { status, resolvedAt: new Date() },
+      include: {
+        creditor: { select: { id: true, lineUserId: true, displayName: true } },
+        debtor: { select: { id: true, lineUserId: true, displayName: true } },
+      },
     })
+
+    // Notify the *other* party on LINE so they see what just happened.
+    // - Debtor changes status (paid/later/rejected): push to creditor.
+    // - Creditor cancels (rejected): push to debtor.
+    try {
+      const target = isDebtor ? updated.creditor : updated.debtor
+      const actor = isDebtor ? updated.debtor : updated.creditor
+      const amountBaht = updated.amount / SATANG_PER_BAHT
+      const fmt = new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB' })
+      const actionLabel =
+        status === 'paid' ? 'ชำระเงิน' : status === 'rejected' ? 'ปฏิเสธ' : 'เลื่อนการชำระ'
+      const fallback = `${actor.displayName} ${actionLabel}หนี้ ${fmt.format(amountBaht)} แล้วครับ`
+      const aiPrompt = `สร้างข้อความสั้นๆ แจ้ง ${target.displayName} ว่า ${actor.displayName} ${actionLabel}หนี้ ${fmt.format(amountBaht)} แล้ว ใช้ภาษาไทยสุภาพ ไม่เกิน 2 ประโยค`
+      const aiText = await askSecretary(target.id, aiPrompt, {
+        info: (obj, msg) => req.log.info(obj, msg),
+        warn: (obj, msg) => req.log.warn(obj, msg),
+      })
+      const text = aiText ?? fallback
+      await lineClient.pushMessage({
+        to: target.lineUserId,
+        messages: [{ type: 'text', text }],
+      })
+    } catch (err) {
+      req.log.warn({ err, debtId: debt.id }, 'debt.patch.notify.failed')
+    }
+
     return updated
   })
 }
