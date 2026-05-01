@@ -212,6 +212,7 @@ export async function groupsRoutes(app: FastifyInstance) {
         user: {
           select: {
             id: true,
+            lineUserId: true,
             displayName: true,
             avatarUrl: true,
           },
@@ -224,6 +225,7 @@ export async function groupsRoutes(app: FastifyInstance) {
       members: members.map((m) => ({
         id: m.id,
         userId: m.user.id,
+        lineUserId: m.user.lineUserId,
         displayName: m.user.displayName,
         avatarUrl: m.user.avatarUrl,
         role: m.role,

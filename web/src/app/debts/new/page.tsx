@@ -1,19 +1,28 @@
 'use client'
 
 import * as React from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { ArrowLeft, Loader2, Search, X } from 'lucide-react'
+import { ArrowLeft, Loader2, Search, Users, X } from 'lucide-react'
 import { useAuth } from '@/app/providers'
-import { api, type ApiUserMini } from '@/lib/api'
+import { api, type ApiGroup, type ApiGroupMember, type ApiUserMini } from '@/lib/api'
 import { bangkokLocalToIsoUtc } from '@/lib/format'
+import { cn } from '@/lib/cn'
+
+type PickerMode = 'search' | 'group'
 
 export default function NewDebtPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const initialGroupId = searchParams.get('groupId')
   const { ready, error, authHeaders, retry } = useAuth()
 
+  const [pickerMode, setPickerMode] = React.useState<PickerMode>(
+    initialGroupId ? 'group' : 'search',
+  )
+  const [selectedGroupId, setSelectedGroupId] = React.useState<string | null>(initialGroupId)
   const [searchQuery, setSearchQuery] = React.useState('')
   const [selectedUser, setSelectedUser] = React.useState<ApiUserMini | null>(null)
   const [amountBaht, setAmountBaht] = React.useState('')
@@ -26,8 +35,27 @@ export default function NewDebtPage() {
   const searchResults = useQuery<{ data: ApiUserMini[] }>({
     queryKey: ['users-search', trimmedQuery, authHeaders.lineUserId],
     queryFn: () => api.searchUsers(authHeaders, trimmedQuery),
-    enabled: ready && trimmedQuery.length >= 2,
+    enabled: ready && pickerMode === 'search' && trimmedQuery.length >= 2,
   })
+
+  const groupsQuery = useQuery<{ groups: ApiGroup[] }>({
+    queryKey: ['groups', authHeaders.lineUserId],
+    queryFn: () => api.listGroups(authHeaders),
+    enabled: ready && pickerMode === 'group',
+  })
+
+  const groupMembersQuery = useQuery<{ members: ApiGroupMember[] }>({
+    queryKey: ['group-members', selectedGroupId, authHeaders.lineUserId],
+    queryFn: () => api.getGroupMembers(authHeaders, selectedGroupId!),
+    enabled: ready && pickerMode === 'group' && !!selectedGroupId,
+  })
+
+  // Default to the first group when entering group mode without a preset.
+  React.useEffect(() => {
+    if (pickerMode !== 'group' || selectedGroupId) return
+    const firstGroup = groupsQuery.data?.groups?.[0]
+    if (firstGroup) setSelectedGroupId(firstGroup.id)
+  }, [pickerMode, selectedGroupId, groupsQuery.data])
 
   const createMut = useMutation({
     mutationFn: () =>
@@ -36,6 +64,7 @@ export default function NewDebtPage() {
         amountBaht: Number(amountBaht),
         reason: reason.trim() ? reason.trim() : undefined,
         dueAt: dueAtLocal ? bangkokLocalToIsoUtc(dueAtLocal) : undefined,
+        groupId: pickerMode === 'group' && selectedGroupId ? selectedGroupId : undefined,
       }),
     onSuccess: () => router.push('/debts'),
     onError: (e: unknown) =>
@@ -138,6 +167,120 @@ export default function NewDebtPage() {
             </div>
           ) : (
             <>
+              <div className="mb-3 grid grid-cols-2 gap-1.5 rounded-full bg-rose-100 p-1.5">
+                {[
+                  { value: 'search' as PickerMode, label: 'ค้นหา', icon: Search },
+                  { value: 'group' as PickerMode, label: 'จากกลุ่ม', icon: Users },
+                ].map((opt) => {
+                  const active = pickerMode === opt.value
+                  const Icon = opt.icon
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => {
+                        setPickerMode(opt.value)
+                        setSearchQuery('')
+                      }}
+                      className={cn(
+                        'flex items-center justify-center gap-1.5 rounded-full py-2 text-xs font-bold transition-all',
+                        active
+                          ? 'bg-gradient-to-r from-rose-400 to-amber-500 text-white shadow-md'
+                          : 'text-rose-700',
+                      )}
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                      {opt.label}
+                    </button>
+                  )
+                })}
+              </div>
+
+              {pickerMode === 'group' && (
+                <div className="mb-3 space-y-2">
+                  {groupsQuery.isLoading ? (
+                    <div className="flex items-center gap-2 text-xs text-zinc-400">
+                      <Loader2 className="h-3 w-3 animate-spin" /> โหลดกลุ่ม...
+                    </div>
+                  ) : (groupsQuery.data?.groups?.length ?? 0) === 0 ? (
+                    <p className="rounded-2xl bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                      คุณยังไม่มีกลุ่ม{' '}
+                      <Link href="/groups" className="font-bold underline">
+                        ไปสร้าง
+                      </Link>
+                    </p>
+                  ) : (
+                    <div className="flex flex-wrap gap-1.5">
+                      {(groupsQuery.data?.groups ?? []).map((g) => (
+                        <button
+                          key={g.id}
+                          type="button"
+                          onClick={() => setSelectedGroupId(g.id)}
+                          className={cn(
+                            'inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold transition-colors',
+                            selectedGroupId === g.id
+                              ? 'bg-rose-500 text-white shadow'
+                              : 'bg-rose-50 text-rose-700',
+                          )}
+                        >
+                          <Users className="h-3 w-3" />
+                          {g.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {selectedGroupId && (
+                    <div className="space-y-1">
+                      {groupMembersQuery.isLoading && (
+                        <div className="flex items-center gap-2 text-xs text-zinc-400">
+                          <Loader2 className="h-3 w-3 animate-spin" /> โหลดสมาชิก...
+                        </div>
+                      )}
+                      {(groupMembersQuery.data?.members ?? [])
+                        .filter((m) => m.lineUserId !== authHeaders.lineUserId)
+                        .map((m) => (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedUser({
+                                id: m.userId,
+                                lineUserId: m.lineUserId,
+                                displayName: m.displayName,
+                                avatarUrl: m.avatarUrl,
+                              })
+                            }}
+                            className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-colors hover:bg-rose-50"
+                          >
+                            {m.avatarUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={m.avatarUrl}
+                                alt={m.displayName}
+                                className="h-8 w-8 rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-100 text-xs font-bold text-rose-600">
+                                {m.displayName[0]}
+                              </div>
+                            )}
+                            <p className="text-sm font-medium text-zinc-800">{m.displayName}</p>
+                          </button>
+                        ))}
+                      {!groupMembersQuery.isLoading &&
+                        (groupMembersQuery.data?.members ?? []).filter(
+                          (m) => m.lineUserId !== authHeaders.lineUserId,
+                        ).length === 0 && (
+                          <p className="text-xs text-zinc-400">ยังไม่มีสมาชิกคนอื่นในกลุ่มนี้</p>
+                        )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {pickerMode === 'search' && (
+                <>
               <div className="flex items-center gap-2 rounded-2xl border border-rose-100 bg-zinc-50 px-3 py-2.5">
                 <Search className="h-4 w-4 shrink-0 text-zinc-400" />
                 <input
@@ -200,6 +343,8 @@ export default function NewDebtPage() {
                 users.length === 0 && (
                   <p className="mt-2 text-xs text-zinc-400">ไม่พบผู้ใช้</p>
                 )}
+                </>
+              )}
             </>
           )}
         </motion.div>

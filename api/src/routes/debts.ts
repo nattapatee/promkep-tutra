@@ -2,6 +2,8 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { getCaller, AuthError, type CallerIdentity } from '@/lib/auth'
+import { lineClient } from '@/lib/line'
+import { buildDebtRequestBubbleForDebtor } from '@/lib/bot/flex'
 
 const SATANG_PER_BAHT = 100
 
@@ -134,10 +136,30 @@ export async function debtRoutes(app: FastifyInstance) {
         groupId: groupId ?? null,
       },
       include: {
-        creditor: { select: { id: true, displayName: true } },
-        debtor: { select: { id: true, displayName: true } },
+        creditor: { select: { id: true, displayName: true, avatarUrl: true } },
+        debtor: { select: { id: true, displayName: true, avatarUrl: true, lineUserId: true } },
       },
     })
+
+    // Push the same Flex bubble the LINE-text "หนี้ ..." command sends, so a
+    // debt created from the web app also notifies the debtor on LINE.
+    try {
+      await lineClient.pushMessage({
+        to: debt.debtor.lineUserId,
+        messages: [
+          buildDebtRequestBubbleForDebtor({
+            debt,
+            creditor: {
+              displayName: debt.creditor.displayName,
+              avatarUrl: debt.creditor.avatarUrl ?? null,
+            },
+          }),
+        ],
+      })
+    } catch (err) {
+      req.log.warn({ err, debtId: debt.id }, 'debt.web.push.failed')
+    }
+
     return reply.status(201).send(debt)
   })
 

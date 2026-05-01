@@ -127,6 +127,7 @@ export interface ApiGroupDetail {
 export interface ApiGroupMember {
   id: string
   userId: string
+  lineUserId: string
   displayName: string
   avatarUrl: string | null
   role: 'admin' | 'member'
@@ -356,6 +357,7 @@ export const api = {
       amountBaht: number
       reason?: string
       dueAt?: string
+      groupId?: string
     },
   ) =>
     fetch(`${API_BASE}/debts`, {
