@@ -146,7 +146,10 @@ function buildHeaders(auth: AuthHeaders, json = false): HeadersInit {
   if (json) h['content-type'] = 'application/json'
   if (auth.bearer) h['authorization'] = `Bearer ${auth.bearer}`
   if (auth.lineUserId) h['x-line-user-id'] = auth.lineUserId
-  if (auth.displayName) h['x-line-display-name'] = auth.displayName
+  // HTTP headers must be ISO-8859-1; LINE display names often contain Thai
+  // and emoji (e.g. "nfnff💙"), which throws "non ISO-8859-1 code point" in
+  // the browser fetch. Encode to percent-escapes; server decodes.
+  if (auth.displayName) h['x-line-display-name'] = encodeURIComponent(auth.displayName)
   return h
 }
 

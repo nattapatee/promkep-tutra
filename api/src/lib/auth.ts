@@ -69,10 +69,19 @@ async function verifyLineIdToken(idToken: string, channelId: string): Promise<Li
   }
 }
 
+function safeDecodeHeader(value: string): string {
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return value
+  }
+}
+
 function readDevHeaderProfile(req: FastifyRequest): LineProfileFromToken | null {
   const lineUserId = readHeader(req, DEV_FALLBACK_HEADER)
   if (!lineUserId) return null
-  const displayName = readHeader(req, 'x-line-display-name') ?? lineUserId
+  const rawName = readHeader(req, 'x-line-display-name')
+  const displayName = rawName ? safeDecodeHeader(rawName) : lineUserId
   return { lineUserId, displayName, avatarUrl: null }
 }
 
