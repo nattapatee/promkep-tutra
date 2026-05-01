@@ -28,12 +28,44 @@ function textMsg(text: string): messagingApi.TextMessage {
   return { type: 'text', text }
 }
 
-function getPublicApiUrl(): string {
-  return (process.env.PUBLIC_API_URL ?? process.env.WEB_BASE_URL ?? '').trim()
+/**
+ * Resolve the public API base URL for serving QR PNGs to LINE.
+ *
+ * Priority:
+ * 1. PUBLIC_API_URL — explicit, preferred.
+ * 2. DOMAIN_API — bare host (compose env), prefixed with https://.
+ * 3. WEB_BASE_URL with `-web.` → `-api.` rewrite — best-effort fallback when
+ *    only the web host is configured. (Without this fix the bot pointed
+ *    LINE at the WEB host's /qr.png — which 404s and renders blank.)
+ *
+ * Returns null when no usable absolute HTTPS base can be derived.
+ */
+function getPublicApiUrl(log?: BotLogger): string | null {
+  const direct = (process.env.PUBLIC_API_URL ?? '').trim()
+  if (direct.startsWith('https://') || direct.startsWith('http://')) {
+    return direct.replace(/\/$/, '')
+  }
+
+  const domain = (process.env.DOMAIN_API ?? '').trim()
+  if (domain) {
+    return `https://${domain.replace(/^https?:\/\//, '').replace(/\/$/, '')}`
+  }
+
+  const web = (process.env.WEB_BASE_URL ?? '').trim()
+  if (web && /-web\./.test(web)) {
+    const rewritten = web.replace(/-web\./, '-api.').replace(/\/$/, '')
+    log?.warn(
+      { web, rewritten },
+      'promptpay.url.fallback.web_to_api_rewrite — set PUBLIC_API_URL explicitly',
+    )
+    return rewritten
+  }
+
+  log?.warn({}, 'promptpay.url.missing — set PUBLIC_API_URL in production env')
+  return null
 }
 
-function buildQrUrl(userId: string, amountSatang: number): string {
-  const base = getPublicApiUrl()
+function buildQrUrl(base: string, userId: string, amountSatang: number): string {
   return `${base}/qr.png?u=${encodeURIComponent(userId)}&amount=${amountSatang}`
 }
 
@@ -88,7 +120,20 @@ export async function handlePromptPayRequest(
   }
 
   const link = user.promptPayLink
-  const qrUrl = buildQrUrl(user.id, amountSatang)
+  const base = getPublicApiUrl(log)
+  if (!base) {
+    await safePush(
+      lineUserId,
+      [
+        textMsg(
+          'ระบบยังตั้งค่าไม่ครบ (PUBLIC_API_URL ไม่พบ) ตุ๊ต๊ะส่ง QR ให้ไม่ได้ตอนนี้ครับ ลองติดต่อแอดมิน',
+        ),
+      ],
+      log,
+    )
+    return
+  }
+  const qrUrl = buildQrUrl(base, user.id, amountSatang)
   const amountBaht = amountSatang / 100
   const identifierMasked = maskIdentifier({
     identifier: link.identifier,

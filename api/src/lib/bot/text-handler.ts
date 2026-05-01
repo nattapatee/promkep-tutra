@@ -14,7 +14,7 @@ import {
   buildMonthSummaryBubble,
   buildUndoConfirmationBubble,
 } from '@/lib/bot/flex'
-import { askSecretary } from '@/lib/bot/secretary'
+import { askSecretary, getLastSecretaryError } from '@/lib/bot/secretary'
 import { clearForUser as clearChatMemory } from '@/lib/bot/chat-memory'
 import { linkUserToRichMenu, readRichMenuIds } from '@/lib/line-richmenu'
 import { handleDebtCreate, handleDebtAction } from '@/lib/bot/debt-flow'
@@ -512,9 +512,26 @@ export async function handleTextMessage(
       if (reply) {
         log.info({ replyLen: reply.length }, 'bot.secretary.replied')
         await safePush(lineUserId, [textReply(reply)], log)
+      } else {
+        const reason = getLastSecretaryError() ?? 'unknown'
+        log.warn({ reason }, 'bot.secretary.null_reply')
+        await safePush(
+          lineUserId,
+          [
+            textReply(
+              `ตุ๊ต๊ะติดปัญหาอยู่ ขอเวลาแป๊บนึงนะครับ 🍚 (reason: ${reason})\nลองเช็ค /chat/health ที่ฝั่งเซิร์ฟเวอร์`,
+            ),
+          ],
+          log,
+        )
       }
     } catch (err) {
       log.warn({ err }, 'secretary.failed')
+      await safePush(
+        lineUserId,
+        [textReply('ตุ๊ต๊ะเจอข้อผิดพลาด ลองส่งใหม่ในอีกสักครู่นะครับ')],
+        log,
+      )
     }
   }
 }
